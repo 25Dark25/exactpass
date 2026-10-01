@@ -1,0 +1,34 @@
+{
+  "name": "exactpass",
+  "version": "0.1.2",
+  "private": true,
+  "description": "Local generator for passwords, passphrases and keys with exact entropy and a mandatory minimum. No dependencies.",
+  "keywords": [
+    "password",
+    "passphrase",
+    "entropy",
+    "generator",
+    "security",
+    "cli"
+  ],
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "exactpass": "bin/exactpass.js"
+  },
+  "scripts": {
+    "test": "node --test",
+    "start": "node serve.js"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/25Dark25/exactpass.git"
+  },
+  "homepage": "https://github.com/25Dark25/exactpass#readme",
+  "bugs": {
+    "url": "https://github.com/25Dark25/exactpass/issues"
+  }
+}

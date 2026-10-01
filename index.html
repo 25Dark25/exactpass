@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src data:; base-uri 'none'; form-action 'none'">
+<meta name="referrer" content="no-referrer">
+<title>exactpass</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="web/style.css">
+</head>
+<body>
+<main>
+  <header class="top">
+    <h1>exactpass</h1>
+    <button type="button" id="lang" class="lang" lang="es" aria-label="Cambiar a español">ES</button>
+  </header>
+  <p class="lead" data-i18n="ui.lead">Generate secrets whose entropy is calculated, not estimated. If the configuration does not reach the minimum you set, nothing is generated. Everything runs in this browser.</p>
+
+  <div class="tabs" role="group" aria-label="Secret type" data-i18n-label="ui.group">
+    <button type="button" data-mode="password" aria-pressed="true" data-i18n="ui.tab.password">Password</button>
+    <button type="button" data-mode="passphrase" aria-pressed="false" data-i18n="ui.tab.passphrase">Passphrase</button>
+    <button type="button" data-mode="key" aria-pressed="false" data-i18n="ui.tab.key">Binary key</button>
+  </div>
+
+  <section id="panel-password" class="panel">
+    <label><span data-i18n="ui.length">Length</span> <input id="length" type="number" min="1" max="512" placeholder="automatic" data-i18n-ph="ui.auto"></label>
+    <fieldset>
+      <legend data-i18n="ui.chars">Characters</legend>
+      <label class="chk"><input id="lower" type="checkbox" checked> <span data-i18n="ui.lower">lowercase</span></label>
+      <label class="chk"><input id="upper" type="checkbox" checked> <span data-i18n="ui.upper">uppercase</span></label>
+      <label class="chk"><input id="digits" type="checkbox" checked> <span data-i18n="ui.digits">digits</span></label>
+      <label class="chk"><input id="symbols" type="checkbox" checked> <span data-i18n="ui.symbols">symbols</span></label>
+    </fieldset>
+    <label class="chk"><input id="lookalikes" type="checkbox"> <span data-i18n="ui.lookalikes">Exclude lookalike characters (0 O 1 l I |)</span></label>
+    <label class="chk"><input id="each" type="checkbox" checked> <span data-i18n="ui.each">Require at least one of each type</span></label>
+  </section>
+
+  <section id="panel-passphrase" class="panel" hidden>
+    <label><span data-i18n="ui.words">Words</span> <input id="words" type="number" min="1" max="64" placeholder="automatic" data-i18n-ph="ui.auto_m"></label>
+    <label><span data-i18n="ui.sep">Separator</span> <input id="sep" value="-" maxlength="3" size="4"></label>
+    <label class="chk"><input id="cap" type="checkbox"> <span data-i18n="ui.cap">Capitalize the first letter (adds no entropy)</span></label>
+    <p id="wlstatus" class="hint">Looking for wordlists/eff_large_wordlist.txt…</p>
+    <label><span data-i18n="ui.wl.load">Load another list (.txt)</span> <input id="wl" type="file" accept=".txt,text/plain"></label>
+  </section>
+
+  <section id="panel-key" class="panel" hidden>
+    <label><span data-i18n="ui.bytes">Bytes</span> <input id="bytes" type="number" min="1" max="1024" value="32"></label>
+    <label><span data-i18n="ui.format">Format</span>
+      <select id="fmt"><option value="hex">hex</option><option value="base64url">base64url</option><option value="base64">base64</option></select>
+    </label>
+  </section>
+
+  <div class="bar">
+    <label><span data-i18n="ui.minbits">Minimum entropy</span>
+      <select id="minbits">
+        <option value="80">80 bits</option><option value="112">112 bits</option>
+        <option value="128" selected>128 bits</option><option value="192">192 bits</option><option value="256">256 bits</option>
+      </select>
+    </label>
+    <button type="button" id="gen" class="primary" data-i18n="ui.generate">Generate</button>
+  </div>
+
+  <p id="error" class="error" role="alert" hidden></p>
+
+  <section id="result" hidden>
+    <output id="value" class="secret"></output>
+    <div class="actions">
+      <button type="button" id="copy" data-i18n="ui.copy">Copy</button>
+      <button type="button" id="toggle">Hide</button>
+      <span id="note" class="hint" role="status"></span>
+    </div>
+    <div class="ruler" id="ruler" role="img" aria-label="">
+      <div class="fill" id="fill"></div>
+      <span class="tick t128"></span><span class="tick t192"></span><span class="tick t256"></span>
+      <span class="minmark" id="minmark"></span>
+    </div>
+    <div class="scale" aria-hidden="true"><span class="l0">0</span><span class="l128">128</span><span class="l192">192</span><span class="l256">256</span></div>
+    <p class="hint" data-i18n="ui.legend">The thin ticks mark 128, 192 and 256 bits (AES-128, 192 and 256 key search). The thick tick is your minimum.</p>
+    <dl id="stats"></dl>
+  </section>
+
+  <details>
+    <summary data-i18n="ui.assumptions">Analysis assumptions</summary>
+    <label><span data-i18n="ui.rate">Classical guesses per second</span> <input id="rate" value="1e12"></label>
+    <label><span data-i18n="ui.qrate">Grover iterations per second</span> <input id="qrate" placeholder="no default" data-i18n-ph="ui.qrate_ph"></label>
+    <p class="hint" data-i18n="ui.assumptions_note">The secret is assumed uniform and the attacker knows the method and the alphabet or list. Real speed depends on the KDF and hardware; these two fields are your assumptions, not data.</p>
+  </details>
+
+  <p class="hint foot" data-i18n="ui.footer">This page stores and sends nothing. The generated value exists only in this tab's memory and, if you copy it, in the clipboard.</p>
+</main>
+<script type="module" src="web/app.js"></script>
+</body>
+</html>
