@@ -60,7 +60,7 @@ Para comprobar el hash: `sha256sum exactpass-0.1.2.zip` (Linux/macOS) o `Get-Fil
 
 ### Web
 
-Elige el tipo de secreto, fija la entropía mínima y pulsa Generar. La regla muestra la entropía exacta frente a las marcas de 128, 192 y 256 bits y tu mínimo. El botón **EN** (o `?lang=es` en la URL) cambia el idioma de la página.
+Elige el tipo de secreto, fija la entropía mínima y pulsa Generar. La regla muestra la entropía exacta frente a las marcas de 128, 192 y 256 bits y tu mínimo. El botón **ES** (o `?lang=es` en la URL) cambia la página a español.
 
 ### Línea de comandos
 
@@ -125,7 +125,7 @@ Un secreto simétrico solo se ve afectado por el algoritmo de Grover, que reduce
 - La cifra de entropía describe el **proceso de generación**. No dice nada de un secreto que hayas elegido tú.
 - Las estimaciones de tiempo dependen de tasas que tú aportas. Son hipótesis, no mediciones.
 - Los secretos viven en cadenas JavaScript inmutables: no se pueden borrar de la memoria de forma fiable y el sistema operativo puede escribirlas en el archivo de paginación.
-- La web sobrescribe el portapapeles 30 segundos después de copiar, aunque hayas copiado otra cosa entretanto.
+- Después de copiar, la web intenta vaciar el portapapeles a los 30 segundos, aunque hayas copiado otra cosa entretanto. Los navegadores pueden impedirlo: Firefox y Safari solo permiten escribir en el portapapeles justo después de un clic, y Chromium puede negarse si la página no tiene el foco. En ese caso la página lo indica, y el botón **Vaciar portapapeles** funciona siempre. Los historiales del portapapeles (como Win+V en Windows) pueden guardar su propia copia.
 - No es un gestor de contraseñas. No guarda nada.
 - No ha habido auditoría de seguridad independiente.
 

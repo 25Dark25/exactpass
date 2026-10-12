@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { generatePassword, generatePassphrase, generateKey, parseWordlist } from "../src/generate.js";
 import { estimate } from "../src/entropy.js";
-import { LANGS, ExactpassError as E, t } from "../src/i18n.js";
+import { LANGS, ExactpassError, ExactpassError as E, t } from "../src/i18n.js";
 
 let lang = "en";
 const int = (name, v) => {
@@ -20,7 +20,7 @@ const num = (name, v) => {
 };
 
 try {
-  const { values: v, positionals: [mode] } = parseArgs({
+  const { values: v, positionals } = parseArgs({
     allowPositionals: true,
     options: {
       "min-bits": { type: "string" }, length: { type: "string" }, words: { type: "string" }, bytes: { type: "string" },
@@ -30,10 +30,21 @@ try {
       capitalize: { type: "boolean" }, json: { type: "boolean" }, help: { type: "boolean" },
     },
   });
+  const [mode] = positionals;
   const wanted = v.lang || process.env.EXACTPASS_LANG || "en"; // an empty value counts as unset
   if (!LANGS.includes(wanted)) throw new E("cli.err.lang", { lang: wanted });
   lang = wanted;
   if (v.help || !mode) { console.log(t(lang, "cli.help")); process.exit(v.help ? 0 : 2); }
+
+  const [, extra] = positionals;
+  if (extra !== undefined) throw new E("cli.err.extra", { arg: extra });
+  const MODE_OPTIONS = {
+    password: ["length", "no-symbols", "exclude-lookalikes", "no-require-each"],
+    passphrase: ["wordlist", "words", "separator", "capitalize"],
+    key: ["bytes", "format"],
+  };
+  const COMMON = ["min-bits", "rate", "qrate", "json", "lang", "help"];
+  if (MODE_OPTIONS[mode]) for (const opt of Object.keys(v)) if (!COMMON.includes(opt) && !MODE_OPTIONS[mode].includes(opt)) throw new E("cli.err.option_mode", { opt, mode });
 
   const minBits = num("min-bits", v["min-bits"]) ?? 128;
   let r, sha;
@@ -66,6 +77,6 @@ try {
     console.error("\n" + rows.map(([k, val]) => `${k.padEnd(pad)} : ${val}`).join("\n") + "\n" + t(lang, "cli.assumptions"));
   }
 } catch (e) {
-  console.error(`${t(lang, "cli.err.prefix")} ${e.code ? t(lang, e.code, e.params) : e.message}`);
+  console.error(`${t(lang, "cli.err.prefix")} ${e instanceof ExactpassError ? t(lang, e.code, e.params) : e.message}`);
   process.exit(2);
 }

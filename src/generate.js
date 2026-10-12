@@ -24,10 +24,10 @@ export function buildGroups({ useLower = true, useUpper = true, useDigits = true
   const raw = alphabet !== undefined
     ? [dedupe(alphabet)]
     : [useLower && GROUPS.lower, useUpper && GROUPS.upper, useDigits && GROUPS.digits, useSymbols && symbols].filter(Boolean).map(dedupe);
-  if (alphabet !== undefined && alphabet.normalize("NFC") !== alphabet) throw new E("err.alphabet_nfc");
   const seen = new Set();
   const groups = raw.map((g) => g.filter((c) => {
     if (/[\s\p{C}\p{M}]/u.test(c)) throw new E("err.alphabet_chars");
+    if (c.normalize("NFC") !== c) throw new E("err.alphabet_nfc"); // e.g. U+212B would look like U+00C5
     if (seen.has(c) || (excludeLookalikes && LOOKALIKES.has(c))) return false;
     seen.add(c);
     return true;
@@ -80,9 +80,24 @@ export function generatePassword(opts = {}, source = systemSource) {
   };
 }
 
-/** Accepts one word per line or the Diceware format "11111<TAB>word". Rejects duplicates (they lower the real entropy). */
+/**
+ * Accepts one word per line or the Diceware format "11111<TAB>word".
+ * Rejects lines with several words, invisible or control characters and non-NFC text: entries that look the same
+ * but are different strings would make the stated entropy higher than what a person can actually type.
+ * Rejects duplicates (they lower the real entropy).
+ */
 export function parseWordlist(text) {
-  const words = text.replace(/^\uFEFF/, "").split(/\r?\n/).map((l) => l.trim()).filter(Boolean).map((l) => l.split(/\s+/).pop());
+  const words = [];
+  text.replace(/^\uFEFF/, "").split(/\r?\n/).forEach((raw, i) => {
+    const line = raw.trim();
+    if (!line) return;
+    const parts = line.split(/\s+/);
+    if (parts.length > 2 || (parts.length === 2 && !/^\d+$/.test(parts[0]))) throw new E("err.wordlist_line", { line: i + 1 });
+    const word = parts.at(-1);
+    if (/\p{C}/u.test(word)) throw new E("err.wordlist_chars", { line: i + 1 });
+    if (word.normalize("NFC") !== word) throw new E("err.wordlist_nfc", { line: i + 1 });
+    words.push(word);
+  });
   const dup = words.length - new Set(words).size;
   if (dup > 0) throw new E("err.duplicates", { n: dup });
   return words;

@@ -123,7 +123,7 @@ A symmetric secret is only affected by Grover's algorithm, which reduces a searc
 - The entropy figure describes the **generation process**. It says nothing about a secret you chose yourself.
 - Time estimates depend on rates you supply. They are assumptions, not measurements.
 - Secrets live in immutable JavaScript strings: they cannot be reliably erased from memory, and the operating system may write them to swap.
-- The web page overwrites the clipboard 30 seconds after you copy, even if you copied something else in the meantime.
+- After you copy, the web page tries to clear the clipboard after 30 seconds, even if you copied something else in the meantime. Browsers can block that: Firefox and Safari only allow clipboard writes right after a click, and Chromium can refuse them when the page is not focused. The page then says so, and the **Clear clipboard** button always works. Clipboard history tools (such as Windows Win+V) may keep their own copy.
 - This is not a password manager. It stores nothing.
 - There has been no independent security audit.
 

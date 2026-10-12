@@ -1,11 +1,16 @@
 // Minimal local server: 127.0.0.1 only, whitelisted routes only, strict headers. No dependencies.
 import { createServer } from "node:http";
-import { readFile } from "node:fs/promises";
+import { readFile, stat } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = dirname(fileURLToPath(import.meta.url));
-const port = Number(process.argv[2] ?? 8080);
+const portArg = process.argv[2] ?? "8080";
+const port = Number(portArg);
+if (!/^\d+$/.test(portArg) || port < 1 || port > 65535) {
+  console.error(`Port must be an integer between 1 and 65535 (got "${portArg}").`);
+  process.exit(1);
+}
 const TYPES = { ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8", ".txt": "text/plain; charset=utf-8" };
 const ROUTES = new Map([
   ["/", "index.html"], ["/web/app.js", "web/app.js"], ["/web/style.css", "web/style.css"],
@@ -27,6 +32,7 @@ const server = createServer(async (req, res) => {
     const path = new URL(req.url, "http://localhost").pathname;
     const rel = ROUTES.get(path) ?? (/^\/wordlists\/[\w.-]+\.txt$/.test(path) ? path.slice(1) : null);
     if (!rel) return send(404, "Not found");
+    if (!(await stat(join(root, rel))).isFile()) return send(404, "Not found"); // e.g. device names on Windows
     const ext = rel.slice(rel.lastIndexOf("."));
     send(200, await readFile(join(root, rel)), TYPES[ext]);
   } catch {
