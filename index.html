@@ -68,6 +68,7 @@
     <div class="actions">
       <button type="button" id="copy" data-i18n="ui.copy">Copy</button>
       <button type="button" id="toggle">Hide</button>
+      <button type="button" id="clearclip" data-i18n="ui.clear_clip" hidden>Clear clipboard</button>
       <span id="note" class="hint" role="status"></span>
     </div>
     <div class="ruler" id="ruler" role="img" aria-label="">
@@ -87,7 +88,7 @@
     <p class="hint" data-i18n="ui.assumptions_note">The secret is assumed uniform and the attacker knows the method and the alphabet or list. Real speed depends on the KDF and hardware; these two fields are your assumptions, not data.</p>
   </details>
 
-  <p class="hint foot" data-i18n="ui.footer">This page stores and sends nothing. The generated value exists only in this tab's memory and, if you copy it, in the clipboard.</p>
+  <p class="hint foot" data-i18n="ui.footer">This page stores and sends nothing. The generated value exists only in this tab's memory and, if you copy it, in the clipboard until something else replaces it.</p>
 </main>
 <script type="module" src="web/app.js"></script>
 </body>

@@ -9,7 +9,7 @@ let mode = "password", wordlist = null, listHash = "", secret = "", masked = fal
 let view = null;      // what the result area shows: { r, minBits } or { error }
 let wlMsg = { key: "ui.wl.searching", params: {} };
 const T = (key, params) => t(lang, key, params);
-const msg = (e) => (e.code ? T(e.code, e.params) : e.message);
+const msg = (e) => (e instanceof ExactpassError ? T(e.code, e.params) : e.message);
 
 const int = (id, errKey) => {
   const v = $(id).value.trim();
@@ -65,7 +65,7 @@ function refreshView() {
   }
 }
 
-function clearResult() { view = null; secret = ""; $("result").hidden = true; $("error").hidden = true; $("note").textContent = ""; }
+function clearResult() { view = null; secret = ""; $("value").textContent = ""; $("result").hidden = true; $("error").hidden = true; $("note").textContent = ""; }
 
 function applyLang() {
   document.documentElement.lang = lang;
@@ -114,7 +114,8 @@ function generate() {
 
 async function useList(buf) {
   wordlist = null;
-  const list = parseWordlist(new TextDecoder().decode(buf)); // throws on duplicates
+  const list = parseWordlist(new TextDecoder().decode(buf)); // throws on duplicates and malformed entries
+  if (list.length < 2) throw new ExactpassError("err.wordlist");
   const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", buf));
   listHash = Array.from(digest, (b) => b.toString(16).padStart(2, "0")).join("");
   wordlist = list;
@@ -122,7 +123,7 @@ async function useList(buf) {
   $("wlstatus").textContent = T(wlMsg.key, wlMsg.params);
 }
 
-const wlError = (e) => { wlMsg = e.code ? { key: e.code, params: e.params } : { key: "ui.raw", params: { m: e.message } }; $("wlstatus").textContent = T(wlMsg.key, wlMsg.params); };
+const wlError = (e) => { wlMsg = e instanceof ExactpassError ? { key: e.code, params: e.params } : { key: "ui.raw", params: { m: e.message } }; $("wlstatus").textContent = T(wlMsg.key, wlMsg.params); };
 
 for (const b of document.querySelectorAll("[data-mode]")) b.addEventListener("click", () => setMode(b.dataset.mode));
 $("gen").addEventListener("click", generate);
@@ -130,16 +131,32 @@ $("toggle").addEventListener("click", () => { masked = !masked; showSecret(); })
 $("lang").addEventListener("click", () => { lang = lang === "en" ? "es" : "en"; applyLang(); });
 document.addEventListener("keydown", (e) => { if (e.key === "Enter" && e.target.matches("input:not([type=file]):not([type=checkbox])")) generate(); });
 
+// Browsers may refuse a clipboard write that does not come from a click (Firefox and Safari always do; Chromium
+// can refuse when the page is not focused). So the timed clear reports failure instead of claiming success,
+// and the "Clear clipboard" button, which runs on a click, works everywhere.
+async function clearClipboard() {
+  clearTimeout(clipTimer);
+  try {
+    await navigator.clipboard.writeText("");
+    $("note").textContent = T("ui.clip_cleared");
+    $("clearclip").hidden = true;
+  } catch {
+    $("note").textContent = T("ui.clip_failed");
+  }
+}
+
 $("copy").addEventListener("click", async () => {
   try {
     await navigator.clipboard.writeText(secret);
     $("note").textContent = T("ui.copied");
+    $("clearclip").hidden = false;
     clearTimeout(clipTimer);
-    clipTimer = setTimeout(() => navigator.clipboard.writeText("").catch(() => {}), 30000);
+    clipTimer = setTimeout(clearClipboard, 30000);
   } catch {
     $("note").textContent = T("ui.copy_blocked");
   }
 });
+$("clearclip").addEventListener("click", clearClipboard);
 
 $("wl").addEventListener("change", async (e) => {
   const f = e.target.files[0];
