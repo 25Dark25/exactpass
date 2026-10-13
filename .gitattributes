@@ -1,0 +1,3 @@
+* text=auto eol=lf
+wordlists/*.txt -text
+*.png binary
