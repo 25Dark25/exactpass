@@ -11,6 +11,15 @@ let wlMsg = { key: "ui.wl.searching", params: {} };
 const T = (key, params) => t(lang, key, params);
 const msg = (e) => (e instanceof ExactpassError ? T(e.code, e.params) : e.message);
 
+// Static hosting such as GitHub Pages cannot send "frame-ancestors 'none'" (serve.js does): refuse to run inside
+// another site's frame, where a disguised overlay could make the user generate or copy a secret (clickjacking).
+if (window.top !== window.self) {
+  const p = document.createElement("p");
+  p.textContent = T("ui.framed");
+  document.body.replaceChildren(p);
+  throw new Error("exactpass does not run inside a frame.");
+}
+
 const int = (id, errKey) => {
   // A number field holding text it cannot parse ("e", "12abc" in Firefox) reports value "": that is not "automatic".
   if ($(id).validity.badInput) throw new ExactpassError(errKey);

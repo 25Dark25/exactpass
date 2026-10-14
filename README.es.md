@@ -18,6 +18,13 @@ Generador local de contraseñas, passphrases y claves binarias. Calcula la entro
 - **Local.** La web tiene una política de seguridad de contenido (CSP) estricta, no guarda nada y no hace peticiones a terceros.
 - **Inglés y español** en la web, el CLI y todos los mensajes.
 
+## Probarlo en línea
+
+**<https://25dark25.github.io/exactpass/>** es la misma página web que `npm start`, publicada desde una release firmada por `.github/workflows/pages.yml`. Todo sigue ocurriendo en tu navegador: la página no envía ni guarda nada.
+
+- Para comprobar qué release está publicada y que los archivos no han cambiado, abre [`release.txt`](https://25dark25.github.io/exactpass/release.txt): indica el tag, el commit y el SHA-256 de cada archivo publicado, que puedes comparar con los mismos archivos de ese tag.
+- GitHub Pages no puede enviar cabeceras HTTP, así que la página se apoya en la política de seguridad de contenido de `index.html` y se niega a funcionar dentro de un marco de otra web. El servidor local (`npm start`) envía además `frame-ancestors 'none'`, `nosniff` y `no-store`. Si prefieres no fiarte de una página alojada, ejecútala en local.
+
 ## Inicio rápido
 
 Requiere [Node.js](https://nodejs.org) 22 o superior. No hay nada que instalar.
@@ -49,12 +56,12 @@ curl -sSL https://github.com/25Dark25.gpg | gpg --import
 Invoke-WebRequest https://github.com/25Dark25.gpg -OutFile 25Dark25.gpg; gpg --import 25Dark25.gpg
 
 gpg --fingerprint A7FCEDEAD7E6C3437312284A442DA687E0FF73EE   # debe coincidir con la huella de arriba
-gpg --verify exactpass-0.1.5.zip.asc exactpass-0.1.5.zip       # usa los nombres de la release que descargaste
+gpg --verify exactpass-0.1.6.zip.asc exactpass-0.1.6.zip       # usa los nombres de la release que descargaste
 ```
 
 `gpg` informará de una firma correcta y también avisará de que la clave no está certificada; es lo esperado. Lo que importa es que la huella sea la misma en varios sitios independientes (este README, las notas de la release y keys.openpgp.org). Una firma válida demuestra que el archivo lo publicó quien controla esa clave, no quién es esa persona.
 
-Para comprobar el hash: `sha256sum exactpass-0.1.5.zip` (Linux/macOS) o `Get-FileHash exactpass-0.1.5.zip -Algorithm SHA256` (PowerShell).
+Para comprobar el hash: `sha256sum exactpass-0.1.6.zip` (Linux/macOS) o `Get-FileHash exactpass-0.1.6.zip -Algorithm SHA256` (PowerShell).
 
 ## Uso
 

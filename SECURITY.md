@@ -12,6 +12,8 @@ Use **Security → Advisories → Report a vulnerability** on the repository pag
 - The local server reachable from outside `127.0.0.1`, or serving files outside its whitelist.
 - Misleading claims in the code or documentation.
 
+The web page published on GitHub Pages (<https://25dark25.github.io/exactpass/>) is in scope too: a difference between its files and the release named in its `release.txt`, or a way to use it from another site's frame.
+
 ## Out of scope
 
 - Malware, keyloggers or a compromised clipboard, browser or operating system.

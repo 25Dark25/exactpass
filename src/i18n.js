@@ -62,6 +62,7 @@ const en = {
   "cli.err.mode": "Unknown mode: {mode}", "cli.err.extra": "Unexpected argument: {arg}",
   "cli.err.option_mode": "--{opt} does not apply to {mode}.", "cli.err.lang": "Unknown language: {lang} (use en or es).",
 
+  "ui.framed": "exactpass does not run inside another page. Open it directly in its own tab.",
   "ui.lead": "Generate secrets whose entropy is calculated, not estimated. If the configuration does not reach the minimum you set, nothing is generated. Everything runs in this browser.",
   "ui.group": "Secret type", "ui.tab.password": "Password", "ui.tab.passphrase": "Passphrase", "ui.tab.key": "Binary key",
   "ui.length": "Length", "ui.auto": "automatic", "ui.auto_m": "automatic", "ui.chars": "Characters",
@@ -155,6 +156,7 @@ const es = {
   "cli.err.mode": "Modo desconocido: {mode}", "cli.err.extra": "Argumento inesperado: {arg}",
   "cli.err.option_mode": "--{opt} no se aplica a {mode}.", "cli.err.lang": "Idioma desconocido: {lang} (usa en o es).",
 
+  "ui.framed": "exactpass no funciona dentro de otra página. Ábrela directamente en su propia pestaña.",
   "ui.lead": "Genera secretos con la entropía calculada, no estimada. Si la configuración no llega al mínimo que fijes, no genera nada. Todo ocurre en este navegador.",
   "ui.group": "Tipo de secreto", "ui.tab.password": "Contraseña", "ui.tab.passphrase": "Passphrase", "ui.tab.key": "Clave binaria",
   "ui.length": "Longitud", "ui.auto": "automática", "ui.auto_m": "automático", "ui.chars": "Caracteres",

@@ -18,6 +18,13 @@ A local generator for passwords, passphrases and binary keys. It calculates the 
 - **Local.** The web page has a strict Content Security Policy, stores nothing and makes no third-party requests.
 - **English and Spanish** in the web page, the CLI and all messages.
 
+## Try it online
+
+**<https://25dark25.github.io/exactpass/>** is the same web page as `npm start`, published from a signed release by `.github/workflows/pages.yml`. Everything still runs in your browser: the page sends nothing and stores nothing.
+
+- To check which release is online and that the files are unchanged, open [`release.txt`](https://25dark25.github.io/exactpass/release.txt): it lists the tag, the commit and the SHA-256 of every published file, which you can compare with the same files in that tag.
+- GitHub Pages cannot send HTTP headers, so the page relies on the Content Security Policy in `index.html` and refuses to run inside another site's frame. The local server (`npm start`) also sends `frame-ancestors 'none'`, `nosniff` and `no-store`. If you prefer not to trust a hosted page, run it locally.
+
 ## Quick start
 
 Requires [Node.js](https://nodejs.org) 22 or later. There is nothing to install.
@@ -49,12 +56,12 @@ curl -sSL https://github.com/25Dark25.gpg | gpg --import
 Invoke-WebRequest https://github.com/25Dark25.gpg -OutFile 25Dark25.gpg; gpg --import 25Dark25.gpg
 
 gpg --fingerprint A7FCEDEAD7E6C3437312284A442DA687E0FF73EE   # must match the fingerprint above
-gpg --verify exactpass-0.1.5.zip.asc exactpass-0.1.5.zip       # use the file names of the release you downloaded
+gpg --verify exactpass-0.1.6.zip.asc exactpass-0.1.6.zip       # use the file names of the release you downloaded
 ```
 
 `gpg` will report a good signature and also warn that the key is not certified; that is expected. What matters is that the fingerprint is the same in several independent places (this README, the release notes and keys.openpgp.org). A valid signature shows the file was published by whoever controls that key, not who that person is.
 
-To check the hash: `sha256sum exactpass-0.1.5.zip` (Linux/macOS) or `Get-FileHash exactpass-0.1.5.zip -Algorithm SHA256` (PowerShell).
+To check the hash: `sha256sum exactpass-0.1.6.zip` (Linux/macOS) or `Get-FileHash exactpass-0.1.6.zip -Algorithm SHA256` (PowerShell).
 
 ## Usage
 
