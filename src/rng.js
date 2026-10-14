@@ -1,6 +1,6 @@
 // Randomness: only crypto.getRandomValues (the system CSPRNG). Never Math.random.
 const webcrypto = globalThis.crypto;
-if (!webcrypto?.getRandomValues) throw new Error("crypto.getRandomValues is not available (use Node >= 20 or a modern browser).");
+if (!webcrypto?.getRandomValues) throw new Error("crypto.getRandomValues is not available (use Node >= 22 or a modern browser).");
 
 export const systemSource = {
   randomBytes(n) {

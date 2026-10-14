@@ -49,12 +49,12 @@ curl -sSL https://github.com/25Dark25.gpg | gpg --import
 Invoke-WebRequest https://github.com/25Dark25.gpg -OutFile 25Dark25.gpg; gpg --import 25Dark25.gpg
 
 gpg --fingerprint A7FCEDEAD7E6C3437312284A442DA687E0FF73EE   # must match the fingerprint above
-gpg --verify exactpass-0.1.2.zip.asc exactpass-0.1.2.zip       # use the file names of the release you downloaded
+gpg --verify exactpass-0.1.4.zip.asc exactpass-0.1.4.zip       # use the file names of the release you downloaded
 ```
 
 `gpg` will report a good signature and also warn that the key is not certified; that is expected. What matters is that the fingerprint is the same in several independent places (this README, the release notes and keys.openpgp.org). A valid signature shows the file was published by whoever controls that key, not who that person is.
 
-To check the hash: `sha256sum exactpass-0.1.2.zip` (Linux/macOS) or `Get-FileHash exactpass-0.1.2.zip -Algorithm SHA256` (PowerShell).
+To check the hash: `sha256sum exactpass-0.1.4.zip` (Linux/macOS) or `Get-FileHash exactpass-0.1.4.zip -Algorithm SHA256` (PowerShell).
 
 ## Usage
 
@@ -73,6 +73,8 @@ node bin/exactpass.js password --json
 node bin/exactpass.js password --lang es             # or set EXACTPASS_LANG=es
 ```
 
+In PowerShell, to make Spanish the default for the session: `$env:EXACTPASS_LANG = "es"`. Full tags such as `es-ES` or `es_ES.UTF-8` are accepted.
+
 The secret goes to stdout and the report to stderr, so you can pipe the secret without the analysis. The exit code is 0 on success and 2 for an invalid configuration or one that does not reach the minimum.
 
 | Option | Mode | Description |
@@ -84,7 +86,7 @@ The secret goes to stdout and the report to stderr, so you can pipe the secret w
 | `--no-require-each` | password | Do not require one character of each type |
 | `--wordlist FILE` | passphrase | Word list (required) |
 | `--words N` | passphrase | Number of words (default: fewest that meet the minimum) |
-| `--separator S` | passphrase | Separator (default `-`) |
+| `--separator S` | passphrase | Separator (default `-`; no line breaks, control or invisible characters) |
 | `--capitalize` | passphrase | Capitalize each word (adds no entropy) |
 | `--bytes N` | key | 1 to 1024 (default 32) |
 | `--format F` | key | `hex`, `base64` or `base64url` |
