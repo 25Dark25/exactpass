@@ -10,8 +10,8 @@ const server = fileURLToPath(new URL("../serve.js", import.meta.url));
 const run = (file, args) => spawnSync(process.execPath, [file, ...args], { encoding: "utf8", timeout: 10000, env: { ...process.env, EXACTPASS_LANG: "" } });
 
 test("word list: rejects entries that look identical but differ (NFD, invisible or control characters)", () => {
-  assert.throws(() => parseWordlist("café\ncafé\nxyz"), { code: "err.wordlist_nfc" });
-  assert.throws(() => parseWordlist("abc\nabc​\nxyz"), { code: "err.wordlist_chars" });
+  assert.throws(() => parseWordlist("caf\u00E9\ncafe\u0301\nxyz"), { code: "err.wordlist_nfc" });
+  assert.throws(() => parseWordlist("abc\nabc\u200B\nxyz"), { code: "err.wordlist_chars" });
   assert.throws(() => parseWordlist("a\u0007b\ncd\nef"), { code: "err.wordlist_chars" });
 });
 
@@ -21,8 +21,8 @@ test("word list: a line with several words is an error, not silently truncated",
 });
 
 test("custom symbols must be in NFC form (U+212B ANGSTROM SIGN would look like U+00C5)", () => {
-  assert.throws(() => buildGroups({ symbols: "Å!" }), { code: "err.alphabet_nfc" });
-  assert.equal(buildGroups({ symbols: "Å!" }).at(-1).length, 2);
+  assert.throws(() => buildGroups({ symbols: "\u212B!" }), { code: "err.alphabet_nfc" });
+  assert.equal(buildGroups({ symbols: "\u00C5!" }).at(-1).length, 2);
 });
 
 test("CLI: errors from Node show a readable message, not only an internal code", () => {
