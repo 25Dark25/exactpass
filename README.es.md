@@ -49,12 +49,12 @@ curl -sSL https://github.com/25Dark25.gpg | gpg --import
 Invoke-WebRequest https://github.com/25Dark25.gpg -OutFile 25Dark25.gpg; gpg --import 25Dark25.gpg
 
 gpg --fingerprint A7FCEDEAD7E6C3437312284A442DA687E0FF73EE   # debe coincidir con la huella de arriba
-gpg --verify exactpass-0.1.4.zip.asc exactpass-0.1.4.zip       # usa los nombres de la release que descargaste
+gpg --verify exactpass-0.1.5.zip.asc exactpass-0.1.5.zip       # usa los nombres de la release que descargaste
 ```
 
 `gpg` informará de una firma correcta y también avisará de que la clave no está certificada; es lo esperado. Lo que importa es que la huella sea la misma en varios sitios independientes (este README, las notas de la release y keys.openpgp.org). Una firma válida demuestra que el archivo lo publicó quien controla esa clave, no quién es esa persona.
 
-Para comprobar el hash: `sha256sum exactpass-0.1.4.zip` (Linux/macOS) o `Get-FileHash exactpass-0.1.4.zip -Algorithm SHA256` (PowerShell).
+Para comprobar el hash: `sha256sum exactpass-0.1.5.zip` (Linux/macOS) o `Get-FileHash exactpass-0.1.5.zip -Algorithm SHA256` (PowerShell).
 
 ## Uso
 

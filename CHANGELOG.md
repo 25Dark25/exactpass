@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.1.5 - 2026-10-14
+
+Fixes from a second review of 0.1.4. The generator's output and entropy figures are unchanged for every input that 0.1.4 accepted; the changes add rejections and fix the test suite.
+
+- Tests: `npm test` failed in a terminal (one test compared a number that Node colors when `node --test` passes `FORCE_COLOR` to child processes). The test now prints plain text, CLI tests no longer inherit the terminal's color settings (Node 24 warns when `FORCE_COLOR` and `NO_COLOR` are both set), and CI runs with `FORCE_COLOR=1`.
+- Tests: the 0.1.4 tests no longer need `wordlists/eff_large_wordlist.txt`; three of them failed without it. Look-alike and invisible characters in the test files are written as `\u` escapes.
+- Word lists, separators and custom alphabets: an entry that starts with a character which merges with the text before it (a combining mark, a Hangul vowel or final jamo, a Kirat Rai vowel sign) is rejected. Such an entry joins the previous word, so different sequences could become the same text: from the list `e`, `é`, U+0301, 27 three-word passphrases were counted where only 26 exist.
+- Web: the secret is removed from the page when showing the result fails (for example, with an invalid "guesses per second"); it used to stay in the hidden result area.
+- API: `alphabet` or `symbols` that is not a string or an array is rejected with a project error instead of a `TypeError`; empty custom symbols are reported (`err.group_empty`) instead of silently dropping the symbol group.
+
 ## 0.1.4 - 2026-10-14
 
 Fixes from a full audit of 0.1.3. The generator's output and entropy figures are unchanged for every input that 0.1.3 accepted correctly; the changes add rejections and fix messages.
