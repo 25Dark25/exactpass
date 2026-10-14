@@ -60,7 +60,8 @@ function render(r, minBits) {
 function refreshView() {
   if (!view) return;
   if (view.error) {
-    $("result").hidden = true; secret = "";
+    // render() may have written the secret before failing (e.g. on an invalid rate): remove it, not only hide it
+    $("result").hidden = true; secret = ""; $("value").textContent = "";
     $("error").textContent = msg(view.error); $("error").hidden = false;
   } else {
     try { render(view.r, view.minBits); } catch (e) { view = { error: e }; refreshView(); }

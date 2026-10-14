@@ -49,12 +49,12 @@ curl -sSL https://github.com/25Dark25.gpg | gpg --import
 Invoke-WebRequest https://github.com/25Dark25.gpg -OutFile 25Dark25.gpg; gpg --import 25Dark25.gpg
 
 gpg --fingerprint A7FCEDEAD7E6C3437312284A442DA687E0FF73EE   # must match the fingerprint above
-gpg --verify exactpass-0.1.4.zip.asc exactpass-0.1.4.zip       # use the file names of the release you downloaded
+gpg --verify exactpass-0.1.5.zip.asc exactpass-0.1.5.zip       # use the file names of the release you downloaded
 ```
 
 `gpg` will report a good signature and also warn that the key is not certified; that is expected. What matters is that the fingerprint is the same in several independent places (this README, the release notes and keys.openpgp.org). A valid signature shows the file was published by whoever controls that key, not who that person is.
 
-To check the hash: `sha256sum exactpass-0.1.4.zip` (Linux/macOS) or `Get-FileHash exactpass-0.1.4.zip -Algorithm SHA256` (PowerShell).
+To check the hash: `sha256sum exactpass-0.1.5.zip` (Linux/macOS) or `Get-FileHash exactpass-0.1.5.zip -Algorithm SHA256` (PowerShell).
 
 ## Usage
 

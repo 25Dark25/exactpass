@@ -13,7 +13,7 @@ Check the fingerprint:
 
 ## Do you need exactly this list?
 
-No. The entropy of a passphrase depends only on the **number of unique words** in the list (n · log2 W), not on which words they are. You can use another list (UTF-8, one word per line, or the Diceware format `11111<TAB>word`): the tool rejects duplicates and prints the SHA-256 of the list it used. The provenance of this list helps you detect corruption and gives you words chosen to be easy to memorize.
+No. The entropy of a passphrase depends only on the **number of unique words** in the list (n · log2 W), not on which words they are. You can use another list (UTF-8, one word per line, or the Diceware format `11111<TAB>word`): the tool rejects duplicates, invisible characters, text not in NFC form and words that start with a combining character and prints the SHA-256 of the list it used. The provenance of this list helps you detect corruption and gives you words chosen to be easy to memorize.
 
 `npm test` checks this list: 7776 lines, dice codes 11111 to 66666, unique words, and no ambiguity with `-` or a space as separator. With 7776 words each word is worth 12.92 bits, and 10 words give 129.25 bits.
 

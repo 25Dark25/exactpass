@@ -16,6 +16,26 @@ const dedupe = (s) => [...new Set(Array.from(s))];
 // Control/format characters and default-ignorable ones (variation selectors, Hangul fillers...): they render as nothing.
 const INVISIBLE = /[\p{C}\p{Default_Ignorable_Code_Point}]/u;
 
+// Characters that NFC can merge with the text before them: combining marks (composed or reordered) and the other
+// second halves of canonical compositions (Hangul vowel and final jamo, Kirat Rai vowel signs...). At the start of a
+// word or separator they would join the previous word, so different sequences could become the same text.
+// Built once from this engine's own Unicode data, and only when a non-ASCII character needs it.
+let composingSeconds;
+function combinesWithPrevious(text) {
+  const c = String.fromCodePoint(text.codePointAt(0));
+  if (c < "\u0080") return false;
+  if (/\p{M}/u.test(c)) return true;
+  if (!composingSeconds) {
+    composingSeconds = new Set();
+    for (let cp = 0x80; cp <= 0x10ffff; cp++) {
+      if (cp === 0xd800) cp = 0xe000; // skip surrogates
+      const s = String.fromCodePoint(cp), d = s.normalize("NFD");
+      if (d !== s) for (const x of Array.from(d).slice(1)) composingSeconds.add(x);
+    }
+  }
+  return composingSeconds.has(c);
+}
+
 /** The threshold must be a finite number > 0: NaN/0/negative values would silently disable the main guarantee. */
 export function assertMinBits(minBits) {
   if (typeof minBits !== "number" || !Number.isFinite(minBits) || minBits <= 0) throw new E("err.minbits");
@@ -24,14 +44,18 @@ export function assertMinBits(minBits) {
 
 /** Disjoint character groups. The REAL alphabet size (after filters) is what counts for the entropy. */
 export function buildGroups({ useLower = true, useUpper = true, useDigits = true, useSymbols = true, symbols = GROUPS.symbols, excludeLookalikes = false, alphabet } = {}) {
+  const text = (x) => typeof x === "string" || Array.isArray(x);
+  if (alphabet !== undefined && !text(alphabet)) throw new E("err.alphabet_entry");
+  if (alphabet === undefined && useSymbols && !text(symbols)) throw new E("err.alphabet_entry");
+  // Filter on the switches, not on the contents: an empty custom group must reach the err.group_empty check.
   const raw = alphabet !== undefined
     ? [dedupe(alphabet)]
-    : [useLower && GROUPS.lower, useUpper && GROUPS.upper, useDigits && GROUPS.digits, useSymbols && symbols].filter(Boolean).map(dedupe);
+    : [[useLower, GROUPS.lower], [useUpper, GROUPS.upper], [useDigits, GROUPS.digits], [useSymbols, symbols]].filter(([on]) => on).map(([, g]) => dedupe(g));
   const seen = new Set();
   const groups = raw.map((g) => g.filter((c) => {
     // An array can hold "ab" next to "a" and "b": different sequences would then join into the same string.
     if (typeof c !== "string" || Array.from(c).length !== 1) throw new E("err.alphabet_entry");
-    if (/[\s\p{C}\p{M}]/u.test(c)) throw new E("err.alphabet_chars");
+    if (/[\s\p{C}\p{M}]/u.test(c) || combinesWithPrevious(c)) throw new E("err.alphabet_chars");
     if (c.normalize("NFC") !== c) throw new E("err.alphabet_nfc"); // e.g. U+212B would look like U+00C5
     if (seen.has(c) || (excludeLookalikes && LOOKALIKES.has(c))) return false;
     seen.add(c);
@@ -91,6 +115,7 @@ function checkWord(word, line) {
   if (/\s/u.test(word)) throw new E("err.wordlist_line", { line });
   if (INVISIBLE.test(word)) throw new E("err.wordlist_chars", { line });
   if (word.normalize("NFC") !== word) throw new E("err.wordlist_nfc", { line });
+  if (combinesWithPrevious(word)) throw new E("err.wordlist_start", { line });
 }
 
 /**
@@ -167,6 +192,7 @@ export function generatePassphrase({ words, minBits, separator = "-", capitalize
   // It ends up inside the secret: a line break would split it on stdout, an invisible character could not be typed.
   if (INVISIBLE.test(separator) || /[\p{Zl}\p{Zp}]/u.test(separator)) throw new E("err.separator_chars");
   if (separator.normalize("NFC") !== separator) throw new E("err.separator_nfc");
+  if (separator !== "" && combinesWithPrevious(separator)) throw new E("err.separator_start");
   if (!Array.isArray(wordlist) || wordlist.length < 2) throw new E("err.wordlist");
   wordlist.forEach((w, i) => checkWord(w, i + 1)); // API callers do not necessarily go through parseWordlist
   if (new Set(wordlist).size !== wordlist.length) throw new E("err.wordlist");
@@ -174,6 +200,8 @@ export function generatePassphrase({ words, minBits, separator = "-", capitalize
   // Upper-casing can leave a non-NFC sequence (U+0390 -> U+0399 U+0308 U+0301) that looks like another word of the list.
   const notNfc = forms.findIndex((f) => f.normalize("NFC") !== f);
   if (notNfc >= 0) throw new E("err.capitalize_nfc", { line: notNfc + 1 });
+  const merging = forms.findIndex((f) => combinesWithPrevious(f));
+  if (merging >= 0) throw new E("err.wordlist_start", { line: merging + 1 });
   if (new Set(forms).size !== forms.length) throw new E("err.capitalize_merge");
   const perWord = Math.log2(forms.length);
   const n = words ?? Math.ceil(min / perWord - 1e-9);

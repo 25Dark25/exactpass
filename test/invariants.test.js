@@ -10,6 +10,13 @@ import { CATALOGS, LANGS, t } from "../src/i18n.js";
 
 const cli = fileURLToPath(new URL("../bin/exactpass.js", import.meta.url));
 const eff = new URL("../wordlists/eff_large_wordlist.txt", import.meta.url);
+// The CLI's own output is under test: color settings of the terminal running the tests must not reach it
+// (Node 24 warns on stderr when FORCE_COLOR and NO_COLOR are both set).
+const childEnv = (extra = {}) => {
+  const env = { ...process.env, EXACTPASS_LANG: "", ...extra };
+  for (const k of ["FORCE_COLOR", "NO_COLOR", "NODE_DISABLE_COLORS"]) delete env[k];
+  return env;
+};
 const fixed = (...vals) => { let i = 0; return { randomBytes: () => { const v = vals[i++]; return new Uint8Array([(v >>> 24) & 255, (v >>> 16) & 255, (v >>> 8) & 255, v & 255]); } }; };
 
 test("randomBelow: exact accept/reject boundary", () => {
@@ -117,7 +124,7 @@ test("i18n: every English message has a Spanish one with the same placeholders, 
 });
 
 test("CLI: valid JSON, secret only on stdout, fail closed with exit code 2, English by default and Spanish on request", () => {
-  const run = (args, env = {}) => spawnSync(process.execPath, [cli, ...args], { encoding: "utf8", env: { ...process.env, EXACTPASS_LANG: "", ...env } });
+  const run = (args, env = {}) => spawnSync(process.execPath, [cli, ...args], { encoding: "utf8", env: childEnv(env) });
   const ok = run(["password", "--json"]);
   assert.equal(ok.status, 0);
   const j = JSON.parse(ok.stdout);

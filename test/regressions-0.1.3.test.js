@@ -2,7 +2,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { spawn, spawnSync } from "node:child_process";
-import { mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { request } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -11,7 +11,25 @@ import { buildGroups, decodeWordlist, generateKey, generatePassphrase, generateP
 
 const cli = fileURLToPath(new URL("../bin/exactpass.js", import.meta.url));
 const serverJs = fileURLToPath(new URL("../serve.js", import.meta.url));
-const run = (args, env = {}) => spawnSync(process.execPath, [cli, ...args], { encoding: "utf8", timeout: 10000, env: { ...process.env, EXACTPASS_LANG: "", ...env } });
+// Self-contained data: the tests must not depend on wordlists/eff_large_wordlist.txt being present.
+const SAMPLE = Array.from({ length: 7776 }, (_, i) => `w${i.toString(36)}`); // 7776 unique ASCII words, like the EFF list
+/** Writes `words` to a temporary list file, calls fn(path) and removes the file. */
+function withListFile(words, fn) {
+  const dir = mkdtempSync(join(tmpdir(), "exactpass-"));
+  try {
+    const file = join(dir, "list.txt");
+    writeFileSync(file, words.join("\n") + "\n");
+    return fn(file);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+}
+// The CLI's own output is under test: color settings of the terminal running the tests must not reach it
+// (Node 24 warns on stderr when FORCE_COLOR and NO_COLOR are both set).
+const childEnv = (extra = {}) => {
+  const env = { ...process.env, EXACTPASS_LANG: "", ...extra };
+  for (const k of ["FORCE_COLOR", "NO_COLOR", "NODE_DISABLE_COLORS"]) delete env[k];
+  return env;
+};
+const run = (args, env = {}) => spawnSync(process.execPath, [cli, ...args], { encoding: "utf8", timeout: 10000, env: childEnv(env) });
 
 test("key: format names inherited from Object.prototype are rejected, not used as encoders (fail closed)", () => {
   for (const format of ["constructor", "toString", "isPrototypeOf", "valueOf", "__proto__", "hasOwnProperty"]) {
@@ -67,9 +85,13 @@ test("passphrase: the separator cannot contain line breaks, control, invisible o
     assert.throws(() => generatePassphrase({ wordlist, words: 3, minBits: 1, separator }), (e) => /^err\.separator_/.test(e.code), JSON.stringify(separator));
   }
   for (const separator of ["-", " ", "", "_", "\u00B7", ". "]) assert.doesNotThrow(() => generatePassphrase({ wordlist, words: 3, minBits: 1, separator }), JSON.stringify(separator));
-  const r = run(["passphrase", "--wordlist", fileURLToPath(new URL("../wordlists/eff_large_wordlist.txt", import.meta.url)), "--separator", "\n"]);
-  assert.equal(r.status, 2);
-  assert.equal(r.stdout, ""); // the secret must never be split over several lines
+  withListFile(SAMPLE, (file) => {
+    assert.equal(run(["passphrase", "--wordlist", file, "--separator", "-"]).status, 0); // the list itself is fine
+    const r = run(["passphrase", "--wordlist", file, "--separator", "\n"]);
+    assert.equal(r.status, 2);
+    assert.equal(r.stdout, ""); // the secret must never be split over several lines
+    assert.match(r.stderr, /separator/);
+  });
 });
 
 // Sardinas-Patterson as shipped in 0.1.3 (sequence of whole sets S1, S2, ...): the reference for the new implementation.
@@ -139,11 +161,10 @@ test("CLI: without a mode the usage goes to stderr (stdout stays empty on every 
 });
 
 test("passphrase: without --words, an unreachable minimum says so instead of blaming the number of words", () => {
-  const eff = parseWordlist(readFileSync(new URL("../wordlists/eff_large_wordlist.txt", import.meta.url), "utf8"));
-  assert.throws(() => generatePassphrase({ wordlist: eff, minBits: 1000 }), { code: "err.words_unreachable", params: { minBits: 1000, max: 64, size: 7776 } });
+  assert.throws(() => generatePassphrase({ wordlist: SAMPLE, minBits: 1000 }), { code: "err.words_unreachable", params: { minBits: 1000, max: 64, size: 7776 } });
   assert.throws(() => generatePassphrase({ wordlist: ["a", "b"] }), { code: "err.words_unreachable" });
-  assert.throws(() => generatePassphrase({ wordlist: eff, words: 65 }), { code: "err.words" }); // an explicit value keeps its message
-  assert.match(run(["passphrase", "--wordlist", fileURLToPath(new URL("../wordlists/eff_large_wordlist.txt", import.meta.url)), "--min-bits", "1000"]).stderr, /Cannot reach 1000 bits/);
+  assert.throws(() => generatePassphrase({ wordlist: SAMPLE, words: 65 }), { code: "err.words" }); // an explicit value keeps its message
+  withListFile(SAMPLE, (file) => assert.match(run(["passphrase", "--wordlist", file, "--min-bits", "1000"]).stderr, /Cannot reach 1000 bits/));
 });
 
 test("word list files: invalid UTF-8 and UTF-16 are rejected with an encoding message, not decoded into look-alikes", () => {
@@ -209,11 +230,11 @@ test("server: a symbolic link in wordlists/ is not followed (only regular files 
   const target = join(dir, "outside.txt"), link = fileURLToPath(new URL(`../wordlists/zz-symlink-test-${process.pid}.txt`, import.meta.url));
   writeFileSync(target, "outside the whitelist\n");
   try {
-    try { symlinkSync(target, link); } catch { return t.skip("cannot create symbolic links here (Windows without privileges)"); }
+    try { symlinkSync(target, link); } catch { return t.skip("cannot create symbolic links here (read-only folder, or Windows without Developer Mode or admin rights)"); }
     const s = await startOnFreePort();
     try {
       assert.equal(await get(s.port, `/wordlists/zz-symlink-test-${process.pid}.txt`), 404);
-      assert.equal(await get(s.port, "/wordlists/eff_large_wordlist.txt"), 200);
+      assert.equal(await get(s.port, "/"), 200); // the server itself works
     } finally { await s.stop(); }
   } finally { rmSync(link, { force: true }); rmSync(dir, { recursive: true, force: true }); }
 });
@@ -235,6 +256,49 @@ test("passphrase --capitalize: a list whose capitalized forms are not NFC is rej
   assert.throws(() => generatePassphrase({ wordlist: ["\u0390x", "\u03AA\u0301x"], words: 1, minBits: 1, capitalize: true }), { code: "err.capitalize_nfc", params: { line: 1 } });
   assert.throws(() => generatePassphrase({ wordlist: ["zzz", "\u0390x"], words: 1, minBits: 1, capitalize: true }), { code: "err.capitalize_nfc", params: { line: 2 } });
   assert.doesNotThrow(() => generatePassphrase({ wordlist: ["\u0390x", "zzz"], words: 1, minBits: 1 })); // without --capitalize nothing changes
-  const eff = parseWordlist(readFileSync(new URL("../wordlists/eff_large_wordlist.txt", import.meta.url), "utf8"));
-  assert.doesNotThrow(() => generatePassphrase({ wordlist: eff, capitalize: true }));
+  assert.doesNotThrow(() => generatePassphrase({ wordlist: SAMPLE, capitalize: true }));
+});
+
+test("word lists, separators and alphabets cannot start with a character that combines with the text before it", () => {
+  // "e" + "\u0301" + "\u00E9" and "\u00E9" + "e" + "\u0301" are different sequences but the same text after NFC (and on screen)
+  assert.throws(() => parseWordlist("e\n\u00E9\n\u0301"), { code: "err.wordlist_start", params: { line: 3 } });
+  assert.throws(() => generatePassphrase({ wordlist: ["e", "\u00E9", "\u0301x"], words: 3, minBits: 1, separator: "" }), { code: "err.wordlist_start", params: { line: 3 } });
+  assert.throws(() => parseWordlist("\u1100\n\uAC00\n\u1161x"), { code: "err.wordlist_start", params: { line: 3 } }); // Hangul vowel jamo
+  assert.throws(() => generatePassphrase({ wordlist: ["e", "x"], words: 2, minBits: 1, separator: "\u0301" }), { code: "err.separator_start" });
+  assert.throws(() => buildGroups({ alphabet: "\u1100\u1161\uAC00" }), { code: "err.alphabet_chars" }); // 27 strings, 26 after NFC
+  if ("\u{16D63}\u{16D67}".normalize("NFC") !== "\u{16D63}\u{16D67}") { // Kirat Rai (Unicode 16): a letter, not a mark, that composes
+    assert.throws(() => parseWordlist("\u{16D63}\n\u{16D67}a"), { code: "err.wordlist_start", params: { line: 2 } });
+  }
+  // marks inside a word, or a separator that only contains them after a base character, are fine
+  assert.deepEqual(parseWordlist("caf\u00E9\nx\u0323\u0302y"), ["caf\u00E9", "x\u0323\u0302y"]);
+  assert.doesNotThrow(() => generatePassphrase({ wordlist: ["a", "b"], words: 2, minBits: 1, separator: "\u00B7" }));
+});
+
+test("property: every accepted list keeps its word sequences distinct and stable under NFC", () => {
+  const pool = ["e", "\u00E9", "\u0301", "\u0323", "a", "\u1100", "\u1161", "\uAC00", "\u11A8", "x", "\u0390", "\u0399"];
+  let s = 99, accepted = 0, rejected = 0;
+  const rnd = (n) => { s = (Math.imul(s, 1103515245) + 12345) >>> 0; return s % n; };
+  for (let i = 0; i < 3000; i++) {
+    const words = new Set();
+    while (words.size < 2 + rnd(4)) words.add(Array.from({ length: 1 + rnd(3) }, () => pool[rnd(pool.length)]).join("").normalize("NFC"));
+    const sep = ["", "-", "x", "\u0301", "\u00E9"][rnd(5)];
+    let r;
+    try { r = generatePassphrase({ wordlist: [...words], words: 2, minBits: 1, separator: sep }); } catch { rejected++; continue; }
+    accepted++;
+    if (r.warnings.length) continue; // ambiguous separator: the figure is already reported as an upper bound
+    const texts = [...words].flatMap((a) => [...words].map((b) => a + sep + b));
+    for (const t of texts) assert.equal(t.normalize("NFC"), t, JSON.stringify({ words: [...words], sep, t }));
+    assert.equal(new Set(texts.map((t) => t.normalize("NFC"))).size, texts.length, JSON.stringify({ words: [...words], sep }));
+  }
+  assert.ok(accepted > 300 && rejected > 300, `coverage: ${accepted} accepted, ${rejected} rejected`);
+});
+
+test("API: an alphabet or symbols that is neither a string nor an array gives a project error, not a TypeError", () => {
+  for (const bad of [null, 5, {}, true]) {
+    assert.throws(() => buildGroups({ alphabet: bad }), { code: "err.alphabet_entry" }, `alphabet ${String(bad)}`);
+    assert.throws(() => buildGroups({ symbols: bad }), { code: "err.alphabet_entry" }, `symbols ${String(bad)}`);
+  }
+  assert.throws(() => buildGroups({ symbols: "" }), { code: "err.group_empty" }); // an empty group never vanishes silently
+  assert.throws(() => buildGroups({ symbols: false }), { code: "err.alphabet_entry" });
+  assert.equal(buildGroups({ useSymbols: false, symbols: null }).length, 3); // ignored when symbols are off
 });
