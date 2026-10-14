@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.4 - unreleased
+## 0.1.4 - 2026-10-14
 
 Fixes from a full audit of 0.1.3. The generator's output and entropy figures are unchanged for every input that 0.1.3 accepted correctly; the changes add rejections and fix messages.
 
@@ -8,6 +8,7 @@ Fixes from a full audit of 0.1.3. The generator's output and entropy figures are
 - API: `generatePassphrase` applies the same per-word checks as `parseWordlist` (non-empty strings, no whitespace, no invisible characters, NFC). Distinct objects, `1` next to `"1"` or NFC next to NFD forms used to pass and overstate the entropy. Alphabet and symbol arrays must contain single characters: `["ab", "a", "b"]` counted 27 strings of length 3 where only 26 exist.
 - Passphrase separator: line breaks, control, invisible and non-NFC characters are rejected. A newline split the secret over several lines of stdout.
 - Word lists: default-ignorable characters (variation selectors, grapheme joiner, Hangul fillers) are rejected, not only control and format characters. Files must be valid UTF-8: a Latin-1 list used to be accepted with U+FFFD in its words, and a UTF-16 list (PowerShell 5.1's default) failed with a misleading message.
+- Passphrase `--capitalize`: lists whose capitalized words are not in NFC form are rejected. An entry such as `ΐx` became a sequence that looks like another entry (`Ϊ́x`) but counted as a different word. Capitalization itself is unchanged.
 - Passphrase separator check (Sardinas–Patterson) runs in polynomial time. A 118-word list built for it took 86 s and 1.5 GB and then failed; it now takes milliseconds, with the same result for every list.
 - CLI: without a mode, the usage goes to stderr, so `pw=$(exactpass)` no longer captures it; an unreachable passphrase minimum says so instead of blaming `--words`; `EXACTPASS_LANG` and `--lang` accept `es-ES`, `ES` or `es_ES.UTF-8`; modes such as `constructor` give the normal "Unknown mode" error.
 - Server: port 80 works (browsers omit `:80` from the Host header); symbolic links are not followed, so only regular files are served.

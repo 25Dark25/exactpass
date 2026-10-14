@@ -63,10 +63,10 @@ test("API: alphabet and symbol entries must be single code points (multi-charact
 
 test("passphrase: the separator cannot contain line breaks, control, invisible or non-NFC characters", () => {
   const wordlist = ["alpha", "beta", "gamma", "delta"];
-  for (const separator of ["\n", "\r\n", "\t", "\u001b[8m", "​", "️", " ", " ", "\u0085", "é"]) {
+  for (const separator of ["\n", "\r\n", "\t", "\u001b[8m", "\u200B", "\uFE0F", "\u2028", "\u2029", "\u0085", "e\u0301"]) {
     assert.throws(() => generatePassphrase({ wordlist, words: 3, minBits: 1, separator }), (e) => /^err\.separator_/.test(e.code), JSON.stringify(separator));
   }
-  for (const separator of ["-", " ", "", "_", "·", ". "]) assert.doesNotThrow(() => generatePassphrase({ wordlist, words: 3, minBits: 1, separator }), JSON.stringify(separator));
+  for (const separator of ["-", " ", "", "_", "\u00B7", ". "]) assert.doesNotThrow(() => generatePassphrase({ wordlist, words: 3, minBits: 1, separator }), JSON.stringify(separator));
   const r = run(["passphrase", "--wordlist", fileURLToPath(new URL("../wordlists/eff_large_wordlist.txt", import.meta.url)), "--separator", "\n"]);
   assert.equal(r.status, 2);
   assert.equal(r.stdout, ""); // the secret must never be split over several lines
@@ -147,13 +147,13 @@ test("passphrase: without --words, an unreachable minimum says so instead of bla
 });
 
 test("word list files: invalid UTF-8 and UTF-16 are rejected with an encoding message, not decoded into look-alikes", () => {
-  const latin1 = Uint8Array.from([0x61, 0xf1, 0x6f, 0x0a, 0x78, 0x79, 0x7a]); // "año\nxyz" in Latin-1: "a\uFFFDo" if decoded loosely
+  const latin1 = Uint8Array.from([0x61, 0xf1, 0x6f, 0x0a, 0x78, 0x79, 0x7a]); // "a\u00F1o\nxyz" in Latin-1: "a\uFFFDo" if decoded loosely
   const utf16bom = Uint8Array.from([0xff, 0xfe, 0x61, 0x00, 0x0a, 0x00, 0x62, 0x00]); // what PowerShell 5.1 Out-File writes
   const utf16 = Uint8Array.from([0x61, 0x00, 0x0a, 0x00, 0x62, 0x00]);
   assert.throws(() => decodeWordlist(latin1), { code: "err.wordlist_encoding" });
   assert.throws(() => decodeWordlist(utf16bom), { code: "err.wordlist_utf16" });
   assert.throws(() => decodeWordlist(utf16), { code: "err.wordlist_utf16" });
-  assert.equal(decodeWordlist(new TextEncoder().encode("\uFEFFaño\ncaña\n")), "año\ncaña\n"); // UTF-8 (with BOM) is fine
+  assert.equal(decodeWordlist(new TextEncoder().encode("\uFEFFa\u00F1o\nca\u00F1a\n")), "a\u00F1o\nca\u00F1a\n"); // UTF-8 (with BOM) is fine
   const dir = mkdtempSync(join(tmpdir(), "exactpass-"));
   try {
     const file = join(dir, "latin1.txt");
@@ -222,9 +222,19 @@ test("CLI: language tags are matched on their primary subtag, case-insensitively
   for (const value of ["es-ES", "ES", "es_ES.UTF-8", "es-419"]) {
     const r = run(["password", "--no-symbols"], { EXACTPASS_LANG: value });
     assert.equal(r.status, 0, value);
-    assert.match(r.stderr, /Entropía exacta/, value);
-    assert.match(run(["password", "--no-symbols", "--lang", value]).stderr, /Entropía exacta/, `--lang ${value}`);
+    assert.match(r.stderr, /Entrop\u00EDa exacta/, value);
+    assert.match(run(["password", "--no-symbols", "--lang", value]).stderr, /Entrop\u00EDa exacta/, `--lang ${value}`);
   }
   assert.match(run(["password", "--no-symbols", "--lang", "EN-us"]).stderr, /Exact entropy/);
   for (const value of ["fr", "fr-ES", "C", "e"]) assert.equal(run(["--help"], { EXACTPASS_LANG: value }).status, 2, value); // unknown stays an error
+});
+
+test("passphrase --capitalize: a list whose capitalized forms are not NFC is rejected (look-alike forms would count twice)", () => {
+  // "\u0390x".toUpperCase() of the first letter gives U+0399 U+0308 U+0301, which is not NFC; its NFC form equals
+  // the capitalized "\u03AA\u0301x", so the two list entries would look the same but count as 2 words.
+  assert.throws(() => generatePassphrase({ wordlist: ["\u0390x", "\u03AA\u0301x"], words: 1, minBits: 1, capitalize: true }), { code: "err.capitalize_nfc", params: { line: 1 } });
+  assert.throws(() => generatePassphrase({ wordlist: ["zzz", "\u0390x"], words: 1, minBits: 1, capitalize: true }), { code: "err.capitalize_nfc", params: { line: 2 } });
+  assert.doesNotThrow(() => generatePassphrase({ wordlist: ["\u0390x", "zzz"], words: 1, minBits: 1 })); // without --capitalize nothing changes
+  const eff = parseWordlist(readFileSync(new URL("../wordlists/eff_large_wordlist.txt", import.meta.url), "utf8"));
+  assert.doesNotThrow(() => generatePassphrase({ wordlist: eff, capitalize: true }));
 });
