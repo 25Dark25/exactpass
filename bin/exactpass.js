@@ -44,7 +44,8 @@ try {
     key: ["bytes", "format"],
   };
   const COMMON = ["min-bits", "rate", "qrate", "json", "lang", "help"];
-  if (MODE_OPTIONS[mode]) for (const opt of Object.keys(v)) if (!COMMON.includes(opt) && !MODE_OPTIONS[mode].includes(opt)) throw new E("cli.err.option_mode", { opt, mode });
+  if (!Object.hasOwn(MODE_OPTIONS, mode)) throw new E("cli.err.mode", { mode });
+  for (const opt of Object.keys(v)) if (!COMMON.includes(opt) && !MODE_OPTIONS[mode].includes(opt)) throw new E("cli.err.option_mode", { opt, mode });
 
   const minBits = num("min-bits", v["min-bits"]) ?? 128;
   let r, sha;
@@ -57,7 +58,7 @@ try {
     r = generatePassphrase({ words: int("words", v.words), minBits, separator: v.separator, capitalize: v.capitalize, wordlist: parseWordlist(raw.toString("utf8")) });
   } else if (mode === "key") {
     r = generateKey({ bytes: int("bytes", v.bytes), format: v.format, minBits });
-  } else throw new E("cli.err.mode", { mode });
+  }
 
   const est = estimate(r.bits, { rate: num("rate", v.rate), qrate: num("qrate", v.qrate), lang });
   if (v.json) {

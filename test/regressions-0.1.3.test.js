@@ -16,3 +16,12 @@ test("key: format names inherited from Object.prototype are rejected, not used a
     assert.equal(r.stdout, "", format);
   }
 });
+
+test("CLI: mode names inherited from Object.prototype give the normal 'unknown mode' error", () => {
+  for (const mode of ["constructor", "__proto__", "toString"]) {
+    const r = run([mode, "--length", "5"]);
+    assert.equal(r.status, 2, mode);
+    assert.equal(r.stdout, "", mode);
+    assert.match(r.stderr, /^Error: Unknown mode: /, mode);
+  }
+});
