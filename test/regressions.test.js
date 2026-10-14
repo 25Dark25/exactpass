@@ -7,7 +7,14 @@ import { buildGroups, parseWordlist } from "../src/generate.js";
 
 const cli = fileURLToPath(new URL("../bin/exactpass.js", import.meta.url));
 const server = fileURLToPath(new URL("../serve.js", import.meta.url));
-const run = (file, args) => spawnSync(process.execPath, [file, ...args], { encoding: "utf8", timeout: 10000, env: { ...process.env, EXACTPASS_LANG: "" } });
+// The CLI's own output is under test: color settings of the terminal running the tests must not reach it
+// (Node 24 warns on stderr when FORCE_COLOR and NO_COLOR are both set).
+const childEnv = (extra = {}) => {
+  const env = { ...process.env, EXACTPASS_LANG: "", ...extra };
+  for (const k of ["FORCE_COLOR", "NO_COLOR", "NODE_DISABLE_COLORS"]) delete env[k];
+  return env;
+};
+const run = (file, args) => spawnSync(process.execPath, [file, ...args], { encoding: "utf8", timeout: 10000, env: childEnv() });
 
 test("word list: rejects entries that look identical but differ (NFD, invisible or control characters)", () => {
   assert.throws(() => parseWordlist("caf\u00E9\ncafe\u0301\nxyz"), { code: "err.wordlist_nfc" });

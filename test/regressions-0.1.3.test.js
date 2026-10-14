@@ -22,7 +22,14 @@ function withListFile(words, fn) {
     return fn(file);
   } finally { rmSync(dir, { recursive: true, force: true }); }
 }
-const run = (args, env = {}) => spawnSync(process.execPath, [cli, ...args], { encoding: "utf8", timeout: 10000, env: { ...process.env, EXACTPASS_LANG: "", ...env } });
+// The CLI's own output is under test: color settings of the terminal running the tests must not reach it
+// (Node 24 warns on stderr when FORCE_COLOR and NO_COLOR are both set).
+const childEnv = (extra = {}) => {
+  const env = { ...process.env, EXACTPASS_LANG: "", ...extra };
+  for (const k of ["FORCE_COLOR", "NO_COLOR", "NODE_DISABLE_COLORS"]) delete env[k];
+  return env;
+};
+const run = (args, env = {}) => spawnSync(process.execPath, [cli, ...args], { encoding: "utf8", timeout: 10000, env: childEnv(env) });
 
 test("key: format names inherited from Object.prototype are rejected, not used as encoders (fail closed)", () => {
   for (const format of ["constructor", "toString", "isPrototypeOf", "valueOf", "__proto__", "hasOwnProperty"]) {
