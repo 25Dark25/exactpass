@@ -1,4 +1,4 @@
-import { generatePassword, generatePassphrase, generateKey, parseWordlist } from "../src/generate.js";
+import { generatePassword, generatePassphrase, generateKey, decodeWordlist, parseWordlist } from "../src/generate.js";
 import { estimate } from "../src/entropy.js";
 import { ExactpassError, t } from "../src/i18n.js";
 
@@ -114,7 +114,7 @@ function generate() {
 
 async function useList(buf) {
   wordlist = null;
-  const list = parseWordlist(new TextDecoder().decode(buf)); // throws on duplicates and malformed entries
+  const list = parseWordlist(decodeWordlist(new Uint8Array(buf))); // throws on bad encodings, duplicates and malformed entries
   if (list.length < 2) throw new ExactpassError("err.wordlist");
   const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", buf));
   listHash = Array.from(digest, (b) => b.toString(16).padStart(2, "0")).join("");

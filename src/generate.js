@@ -94,6 +94,20 @@ function checkWord(word, line) {
 }
 
 /**
+ * Bytes of a word list file -> text. Only UTF-8 is accepted: a loose decoder turns every invalid byte into U+FFFD,
+ * so a Latin-1 list would silently become words nobody can type. UTF-16 (PowerShell 5.1 writes it by default) gets
+ * its own message.
+ */
+export function decodeWordlist(bytes) {
+  if ((bytes[0] === 0xff && bytes[1] === 0xfe) || (bytes[0] === 0xfe && bytes[1] === 0xff) || bytes.includes(0)) throw new E("err.wordlist_utf16");
+  try {
+    return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+  } catch {
+    throw new E("err.wordlist_encoding");
+  }
+}
+
+/**
  * Accepts one word per line or the Diceware format "11111<TAB>word".
  * Rejects lines with several words, invisible or control characters and non-NFC text: entries that look the same
  * but are different strings would make the stated entropy higher than what a person can actually type.

@@ -2,9 +2,11 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { buildGroups, generateKey, generatePassphrase, generatePassword, isUniquelyDecodable, parseWordlist } from "../src/generate.js";
+import { buildGroups, decodeWordlist, generateKey, generatePassphrase, generatePassword, isUniquelyDecodable, parseWordlist } from "../src/generate.js";
 
 const cli = fileURLToPath(new URL("../bin/exactpass.js", import.meta.url));
 const run = (args, env = {}) => spawnSync(process.execPath, [cli, ...args], { encoding: "utf8", timeout: 10000, env: { ...process.env, EXACTPASS_LANG: "", ...env } });
@@ -140,4 +142,23 @@ test("passphrase: without --words, an unreachable minimum says so instead of bla
   assert.throws(() => generatePassphrase({ wordlist: ["a", "b"] }), { code: "err.words_unreachable" });
   assert.throws(() => generatePassphrase({ wordlist: eff, words: 65 }), { code: "err.words" }); // an explicit value keeps its message
   assert.match(run(["passphrase", "--wordlist", fileURLToPath(new URL("../wordlists/eff_large_wordlist.txt", import.meta.url)), "--min-bits", "1000"]).stderr, /Cannot reach 1000 bits/);
+});
+
+test("word list files: invalid UTF-8 and UTF-16 are rejected with an encoding message, not decoded into look-alikes", () => {
+  const latin1 = Uint8Array.from([0x61, 0xf1, 0x6f, 0x0a, 0x78, 0x79, 0x7a]); // "año\nxyz" in Latin-1: "a\uFFFDo" if decoded loosely
+  const utf16bom = Uint8Array.from([0xff, 0xfe, 0x61, 0x00, 0x0a, 0x00, 0x62, 0x00]); // what PowerShell 5.1 Out-File writes
+  const utf16 = Uint8Array.from([0x61, 0x00, 0x0a, 0x00, 0x62, 0x00]);
+  assert.throws(() => decodeWordlist(latin1), { code: "err.wordlist_encoding" });
+  assert.throws(() => decodeWordlist(utf16bom), { code: "err.wordlist_utf16" });
+  assert.throws(() => decodeWordlist(utf16), { code: "err.wordlist_utf16" });
+  assert.equal(decodeWordlist(new TextEncoder().encode("\uFEFFaño\ncaña\n")), "año\ncaña\n"); // UTF-8 (with BOM) is fine
+  const dir = mkdtempSync(join(tmpdir(), "exactpass-"));
+  try {
+    const file = join(dir, "latin1.txt");
+    writeFileSync(file, latin1);
+    const r = run(["passphrase", "--wordlist", file, "--words", "2", "--min-bits", "1"]);
+    assert.equal(r.status, 2);
+    assert.equal(r.stdout, "");
+    assert.match(r.stderr, /UTF-8/);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
 });

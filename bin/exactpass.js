@@ -2,7 +2,7 @@
 import { parseArgs } from "node:util";
 import { readFileSync } from "node:fs";
 import { createHash } from "node:crypto";
-import { generatePassword, generatePassphrase, generateKey, parseWordlist } from "../src/generate.js";
+import { generatePassword, generatePassphrase, generateKey, decodeWordlist, parseWordlist } from "../src/generate.js";
 import { estimate } from "../src/entropy.js";
 import { LANGS, ExactpassError, ExactpassError as E, t } from "../src/i18n.js";
 
@@ -56,7 +56,7 @@ try {
     if (!v.wordlist) throw new E("cli.err.wordlist");
     const raw = readFileSync(v.wordlist);
     sha = createHash("sha256").update(raw).digest("hex");
-    r = generatePassphrase({ words: int("words", v.words), minBits, separator: v.separator, capitalize: v.capitalize, wordlist: parseWordlist(raw.toString("utf8")) });
+    r = generatePassphrase({ words: int("words", v.words), minBits, separator: v.separator, capitalize: v.capitalize, wordlist: parseWordlist(decodeWordlist(raw)) });
   } else if (mode === "key") {
     r = generateKey({ bytes: int("bytes", v.bytes), format: v.format, minBits });
   }
