@@ -10,8 +10,11 @@ export const GROUPS = {
 };
 const LOOKALIKES = new Set(Array.from("0O1lI|"));
 const MAX_LEN = 512;
+const MAX_WORDS = 64;
 const MAX_ATTEMPTS = 100_000; // planPassword guarantees acceptance >= 0.1%: P(exhausting this) <= e^-100
 const dedupe = (s) => [...new Set(Array.from(s))];
+// Control/format characters and default-ignorable ones (variation selectors, Hangul fillers...): they render as nothing.
+const INVISIBLE = /[\p{C}\p{Default_Ignorable_Code_Point}]/u;
 
 /** The threshold must be a finite number > 0: NaN/0/negative values would silently disable the main guarantee. */
 export function assertMinBits(minBits) {
@@ -26,6 +29,8 @@ export function buildGroups({ useLower = true, useUpper = true, useDigits = true
     : [useLower && GROUPS.lower, useUpper && GROUPS.upper, useDigits && GROUPS.digits, useSymbols && symbols].filter(Boolean).map(dedupe);
   const seen = new Set();
   const groups = raw.map((g) => g.filter((c) => {
+    // An array can hold "ab" next to "a" and "b": different sequences would then join into the same string.
+    if (typeof c !== "string" || Array.from(c).length !== 1) throw new E("err.alphabet_entry");
     if (/[\s\p{C}\p{M}]/u.test(c)) throw new E("err.alphabet_chars");
     if (c.normalize("NFC") !== c) throw new E("err.alphabet_nfc"); // e.g. U+212B would look like U+00C5
     if (seen.has(c) || (excludeLookalikes && LOOKALIKES.has(c))) return false;
@@ -80,6 +85,28 @@ export function generatePassword(opts = {}, source = systemSource) {
   };
 }
 
+/** One entry of a word list (`line` is its 1-based position): the rules that keep n*log2(W) honest. */
+function checkWord(word, line) {
+  if (typeof word !== "string" || word === "") throw new E("err.wordlist_entry", { line }); // {} and "[object Object]"...
+  if (/\s/u.test(word)) throw new E("err.wordlist_line", { line });
+  if (INVISIBLE.test(word)) throw new E("err.wordlist_chars", { line });
+  if (word.normalize("NFC") !== word) throw new E("err.wordlist_nfc", { line });
+}
+
+/**
+ * Bytes of a word list file -> text. Only UTF-8 is accepted: a loose decoder turns every invalid byte into U+FFFD,
+ * so a Latin-1 list would silently become words nobody can type. UTF-16 (PowerShell 5.1 writes it by default) gets
+ * its own message.
+ */
+export function decodeWordlist(bytes) {
+  if ((bytes[0] === 0xff && bytes[1] === 0xfe) || (bytes[0] === 0xfe && bytes[1] === 0xff) || bytes.includes(0)) throw new E("err.wordlist_utf16");
+  try {
+    return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+  } catch {
+    throw new E("err.wordlist_encoding");
+  }
+}
+
 /**
  * Accepts one word per line or the Diceware format "11111<TAB>word".
  * Rejects lines with several words, invisible or control characters and non-NFC text: entries that look the same
@@ -94,8 +121,7 @@ export function parseWordlist(text) {
     const parts = line.split(/\s+/);
     if (parts.length > 2 || (parts.length === 2 && !/^\d+$/.test(parts[0]))) throw new E("err.wordlist_line", { line: i + 1 });
     const word = parts.at(-1);
-    if (/\p{C}/u.test(word)) throw new E("err.wordlist_chars", { line: i + 1 });
-    if (word.normalize("NFC") !== word) throw new E("err.wordlist_nfc", { line: i + 1 });
+    checkWord(word, i + 1);
     words.push(word);
   });
   const dup = words.length - new Set(words).size;
@@ -119,20 +145,18 @@ export function isUniquelyDecodable(code) {
     for (let i = lo; i < sorted.length && sorted[i].startsWith(p); i++) out.push(sorted[i]);
     return out;
   };
-  let S = new Set(); // S1: dangling suffixes of pairs (u a proper prefix of v)
-  for (const v of C) for (let k = 1; k < v.length; k++) if (C.has(v.slice(0, k))) S.add(v.slice(k));
+  // S(i+1) is the union of the successors of each element of S(i), so the code is uniquely decodable iff no dangling
+  // suffix reachable from S1 is a code word. Visiting each suffix once is polynomial; iterating whole sets S1, S2, ...
+  // until one repeats can take exponentially many steps (cycles of coprime lengths).
   const seen = new Set();
-  while (S.size > 0) {
-    for (const x of S) if (C.has(x)) return false;
-    const key = [...S].sort().join("\u0000");
-    if (seen.has(key)) return true;
-    seen.add(key);
-    const next = new Set();
-    for (const x of S) {
-      for (let k = 1; k < x.length; k++) if (C.has(x.slice(0, k))) next.add(x.slice(k)); // c·w = x
-      for (const c of withPrefix(x)) if (c.length > x.length) next.add(c.slice(x.length)); // x·w = c
-    }
-    S = next;
+  const queue = [];
+  const visit = (x) => { if (!seen.has(x)) { seen.add(x); queue.push(x); } };
+  for (const v of C) for (let k = 1; k < v.length; k++) if (C.has(v.slice(0, k))) visit(v.slice(k)); // S1: u a proper prefix of v
+  while (queue.length > 0) {
+    const x = queue.pop();
+    if (C.has(x)) return false;
+    for (let k = 1; k < x.length; k++) if (C.has(x.slice(0, k))) visit(x.slice(k)); // c·w = x
+    for (const c of withPrefix(x)) if (c.length > x.length) visit(c.slice(x.length)); // x·w = c
   }
   return true;
 }
@@ -140,12 +164,18 @@ export function isUniquelyDecodable(code) {
 export function generatePassphrase({ words, minBits, separator = "-", capitalize = false, wordlist } = {}, source = systemSource) {
   const min = assertMinBits(minBits ?? 128);
   if (typeof separator !== "string") throw new E("err.separator_type");
-  if (!Array.isArray(wordlist) || wordlist.length < 2 || new Set(wordlist).size !== wordlist.length) throw new E("err.wordlist");
+  // It ends up inside the secret: a line break would split it on stdout, an invisible character could not be typed.
+  if (INVISIBLE.test(separator) || /[\p{Zl}\p{Zp}]/u.test(separator)) throw new E("err.separator_chars");
+  if (separator.normalize("NFC") !== separator) throw new E("err.separator_nfc");
+  if (!Array.isArray(wordlist) || wordlist.length < 2) throw new E("err.wordlist");
+  wordlist.forEach((w, i) => checkWord(w, i + 1)); // API callers do not necessarily go through parseWordlist
+  if (new Set(wordlist).size !== wordlist.length) throw new E("err.wordlist");
   const forms = wordlist.map((w) => (capitalize ? w.charAt(0).toUpperCase() + w.slice(1) : w)); // deterministic: adds no entropy
   if (new Set(forms).size !== forms.length) throw new E("err.capitalize_merge");
   const perWord = Math.log2(forms.length);
   const n = words ?? Math.ceil(min / perWord - 1e-9);
-  if (!Number.isInteger(n) || n < 1 || n > 64) throw new E("err.words");
+  if (words === undefined && n > MAX_WORDS) throw new E("err.words_unreachable", { minBits: min, max: MAX_WORDS, size: forms.length });
+  if (!Number.isInteger(n) || n < 1 || n > MAX_WORDS) throw new E("err.words");
   const bits = n * perWord;
   if (bits < min - 1e-9) throw new E("err.words_below_min", { n, size: forms.length, bits: bits.toFixed(1), minBits: min });
   const exact = isUniquelyDecodable(forms.map((w) => w + separator));
@@ -160,11 +190,13 @@ export function generateKey({ bytes = 32, format = "hex", minBits } = {}, source
   const raw = source.randomBytes(bytes);
   if (raw.length !== bytes) throw new Error("The random source returned an unexpected length.");
   const b64 = () => { let bin = ""; for (const b of raw) bin += String.fromCharCode(b); return btoa(bin); };
-  const enc = {
+  const encoders = {
     hex: () => Array.from(raw, (b) => b.toString(16).padStart(2, "0")).join(""),
     base64: b64,
     base64url: () => b64().replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, ""),
-  }[format];
-  if (!enc) throw new E("err.format");
+  };
+  // Own keys only: "constructor" or "toString" would otherwise return a constant value reported as `bytes * 8` bits.
+  if (typeof format !== "string" || !Object.hasOwn(encoders, format)) throw new E("err.format");
+  const enc = encoders[format];
   return { kind: "key", value: enc(), bits: bytes * 8, bytes, warnings: [] };
 }

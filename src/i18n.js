@@ -7,6 +7,7 @@ const en = {
   "err.alphabet_chars": "The alphabet cannot contain spaces, control characters or combining marks.",
   "err.alphabet_nfc": "The alphabet must be in NFC form (equivalent Unicode sequences would count as different characters).",
   "err.alphabet_size": "The alphabet needs at least 2 distinct characters.",
+  "err.alphabet_entry": "Each entry of the alphabet or the symbols must be exactly one character (one Unicode code point).",
   "err.group_empty": "A character group became empty after removing overlaps or lookalike characters; adjust the custom symbols.",
   "err.unreachable": "Cannot reach {minBits} bits with a length of at most {max}.",
   "err.length": "Length must be an integer between {min} and {max}.",
@@ -17,10 +18,16 @@ const en = {
   "err.wordlist_line": "Word list, line {line}: expected one word, or a dice number and one word.",
   "err.wordlist_chars": "Word list, line {line}: the word contains invisible or control characters.",
   "err.wordlist_nfc": "Word list, line {line}: the word is not in Unicode NFC form. Save the file as NFC.",
+  "err.wordlist_entry": "Word list, entry {line}: every entry must be a non-empty text string.",
+  "err.wordlist_encoding": "The word list is not valid UTF-8. Save it as UTF-8.",
+  "err.wordlist_utf16": "The word list looks like UTF-16 (for example, saved by PowerShell 5.1). Save it as UTF-8.",
   "err.separator_type": "The separator must be a string.",
+  "err.separator_chars": "The separator cannot contain line breaks, control characters or invisible characters.",
+  "err.separator_nfc": "The separator must be in Unicode NFC form.",
   "err.wordlist": "Invalid word list: at least 2 unique words are required.",
   "err.capitalize_merge": "Capitalization makes distinct list words identical: the real entropy would be lower than calculated.",
   "err.words": "The number of words must be an integer between 1 and 64.",
+  "err.words_unreachable": "Cannot reach {minBits} bits with at most {max} words from a list of {size}.",
   "err.words_below_min": "{n} words from a list of {size} give only {bits} bits (< {minBits}). Use more words or lower the minimum explicitly.",
   "err.bytes": "bytes must be an integer between 1 and 1024.",
   "err.bytes_below_min": "{bytes} bytes = {bits} bits (< {minBits}).",
@@ -90,6 +97,7 @@ const es = {
   "err.alphabet_chars": "El alfabeto no puede contener espacios, caracteres de control ni marcas combinantes.",
   "err.alphabet_nfc": "El alfabeto debe estar en forma NFC (dos secuencias Unicode equivalentes contarían como caracteres distintos).",
   "err.alphabet_size": "El alfabeto necesita al menos 2 caracteres distintos.",
+  "err.alphabet_entry": "Cada elemento del alfabeto o de los símbolos debe ser exactamente un carácter (un punto de código Unicode).",
   "err.group_empty": "Un grupo de caracteres quedó vacío tras quitar solapamientos o caracteres confusos; ajusta los símbolos personalizados.",
   "err.unreachable": "No se alcanzan {minBits} bits con una longitud de como máximo {max}.",
   "err.length": "La longitud debe ser un entero entre {min} y {max}.",
@@ -100,10 +108,16 @@ const es = {
   "err.wordlist_line": "Lista de palabras, línea {line}: se esperaba una palabra, o un número de dados y una palabra.",
   "err.wordlist_chars": "Lista de palabras, línea {line}: la palabra contiene caracteres invisibles o de control.",
   "err.wordlist_nfc": "Lista de palabras, línea {line}: la palabra no está en forma Unicode NFC. Guarda el archivo en NFC.",
+  "err.wordlist_entry": "Lista de palabras, elemento {line}: cada elemento debe ser una cadena de texto no vacía.",
+  "err.wordlist_encoding": "La lista de palabras no es UTF-8 válido. Guárdala como UTF-8.",
+  "err.wordlist_utf16": "La lista de palabras parece UTF-16 (por ejemplo, guardada con PowerShell 5.1). Guárdala como UTF-8.",
   "err.separator_type": "El separador debe ser una cadena de texto.",
+  "err.separator_chars": "El separador no puede contener saltos de línea, caracteres de control ni caracteres invisibles.",
+  "err.separator_nfc": "El separador debe estar en forma Unicode NFC.",
   "err.wordlist": "Lista de palabras inválida: se necesitan al menos 2 palabras únicas.",
   "err.capitalize_merge": "La capitalización hace idénticas palabras distintas de la lista: la entropía real sería menor que la calculada.",
   "err.words": "El número de palabras debe ser un entero entre 1 y 64.",
+  "err.words_unreachable": "No se alcanzan {minBits} bits con como máximo {max} palabras de una lista de {size}.",
   "err.words_below_min": "{n} palabras de una lista de {size} dan solo {bits} bits (< {minBits}). Usa más palabras o baja el mínimo de forma explícita.",
   "err.bytes": "bytes debe ser un entero entre 1 y 1024.",
   "err.bytes_below_min": "{bytes} bytes = {bits} bits (< {minBits}).",
@@ -169,6 +183,12 @@ const es = {
 };
 
 export const CATALOGS = { en, es };
+
+/** "es", "ES", "es-ES", "es_ES.UTF-8" -> "es": primary subtag, case-insensitive. Unknown languages give undefined. */
+export function matchLang(value) {
+  const primary = String(value).toLowerCase().split(/[-_.@]/)[0];
+  return LANGS.includes(primary) ? primary : undefined;
+}
 
 /** Translate `key` into `lang` (falls back to English, then to the key itself). */
 export function t(lang, key, params = {}) {

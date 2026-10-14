@@ -1,6 +1,6 @@
 // Minimal local server: 127.0.0.1 only, whitelisted routes only, strict headers. No dependencies.
 import { createServer } from "node:http";
-import { readFile, stat } from "node:fs/promises";
+import { lstat, readFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -16,6 +16,8 @@ const ROUTES = new Map([
   ["/", "index.html"], ["/web/app.js", "web/app.js"], ["/web/style.css", "web/style.css"],
   ["/src/rng.js", "src/rng.js"], ["/src/entropy.js", "src/entropy.js"], ["/src/generate.js", "src/generate.js"], ["/src/i18n.js", "src/i18n.js"],
 ]);
+// Browsers omit the port from the Host header when it is the default one (80 for http).
+const HOSTS = [`127.0.0.1:${port}`, `localhost:${port}`, ...(port === 80 ? ["127.0.0.1", "localhost"] : [])];
 const CSP = "default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src data:; base-uri 'none'; form-action 'none'; frame-ancestors 'none'";
 
 const server = createServer(async (req, res) => {
@@ -27,12 +29,13 @@ const server = createServer(async (req, res) => {
     res.end(body);
   };
   try {
-    if (![`127.0.0.1:${port}`, `localhost:${port}`].includes(req.headers.host ?? "")) return send(403, "Host not allowed");
+    if (!HOSTS.includes(req.headers.host ?? "")) return send(403, "Host not allowed");
     if (req.method !== "GET") return send(405, "Method not allowed");
     const path = new URL(req.url, "http://localhost").pathname;
     const rel = ROUTES.get(path) ?? (/^\/wordlists\/[\w.-]+\.txt$/.test(path) ? path.slice(1) : null);
     if (!rel) return send(404, "Not found");
-    if (!(await stat(join(root, rel))).isFile()) return send(404, "Not found"); // e.g. device names on Windows
+    // lstat: a symbolic link is not a regular file, so it is never followed out of the whitelist (also rejects device names on Windows)
+    if (!(await lstat(join(root, rel))).isFile()) return send(404, "Not found");
     const ext = rel.slice(rel.lastIndexOf("."));
     send(200, await readFile(join(root, rel)), TYPES[ext]);
   } catch {

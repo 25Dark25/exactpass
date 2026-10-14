@@ -1,6 +1,6 @@
 {
   "name": "exactpass",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "private": true,
   "description": "Local generator for passwords, passphrases and keys with exact entropy and a mandatory minimum. No dependencies.",
   "keywords": [

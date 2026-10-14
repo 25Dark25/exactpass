@@ -49,12 +49,12 @@ curl -sSL https://github.com/25Dark25.gpg | gpg --import
 Invoke-WebRequest https://github.com/25Dark25.gpg -OutFile 25Dark25.gpg; gpg --import 25Dark25.gpg
 
 gpg --fingerprint A7FCEDEAD7E6C3437312284A442DA687E0FF73EE   # debe coincidir con la huella de arriba
-gpg --verify exactpass-0.1.2.zip.asc exactpass-0.1.2.zip       # usa los nombres de la release que descargaste
+gpg --verify exactpass-0.1.4.zip.asc exactpass-0.1.4.zip       # usa los nombres de la release que descargaste
 ```
 
 `gpg` informará de una firma correcta y también avisará de que la clave no está certificada; es lo esperado. Lo que importa es que la huella sea la misma en varios sitios independientes (este README, las notas de la release y keys.openpgp.org). Una firma válida demuestra que el archivo lo publicó quien controla esa clave, no quién es esa persona.
 
-Para comprobar el hash: `sha256sum exactpass-0.1.2.zip` (Linux/macOS) o `Get-FileHash exactpass-0.1.2.zip -Algorithm SHA256` (PowerShell).
+Para comprobar el hash: `sha256sum exactpass-0.1.4.zip` (Linux/macOS) o `Get-FileHash exactpass-0.1.4.zip -Algorithm SHA256` (PowerShell).
 
 ## Uso
 
@@ -73,7 +73,7 @@ node bin/exactpass.js password --json
 node bin/exactpass.js password --lang es             # o define EXACTPASS_LANG=es
 ```
 
-En PowerShell, para dejar el español por defecto en la sesión: `$env:EXACTPASS_LANG = "es"`.
+En PowerShell, para dejar el español por defecto en la sesión: `$env:EXACTPASS_LANG = "es"`. También se aceptan etiquetas completas como `es-ES` o `es_ES.UTF-8`.
 
 El secreto sale por stdout y el informe por stderr, así que puedes encadenar el secreto sin arrastrar el análisis. El código de salida es 0 si todo va bien y 2 si la configuración no es válida o no alcanza el mínimo.
 
@@ -86,7 +86,7 @@ El secreto sale por stdout y el informe por stderr, así que puedes encadenar el
 | `--no-require-each` | password | No exigir un carácter de cada tipo |
 | `--wordlist FICHERO` | passphrase | Lista de palabras (obligatoria) |
 | `--words N` | passphrase | Número de palabras (defecto: las mínimas que cumplen el umbral) |
-| `--separator S` | passphrase | Separador (defecto `-`) |
+| `--separator S` | passphrase | Separador (defecto `-`; sin saltos de línea ni caracteres de control o invisibles) |
 | `--capitalize` | passphrase | Primera letra de cada palabra en mayúscula (no añade entropía) |
 | `--bytes N` | key | De 1 a 1024 (defecto 32) |
 | `--format F` | key | `hex`, `base64` o `base64url` |
