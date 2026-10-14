@@ -12,6 +12,8 @@ const T = (key, params) => t(lang, key, params);
 const msg = (e) => (e instanceof ExactpassError ? T(e.code, e.params) : e.message);
 
 const int = (id, errKey) => {
+  // A number field holding text it cannot parse ("e", "12abc" in Firefox) reports value "": that is not "automatic".
+  if ($(id).validity.badInput) throw new ExactpassError(errKey);
   const v = $(id).value.trim();
   if (v === "") return undefined;
   if (!/^\d+$/.test(v)) throw new ExactpassError(errKey);
