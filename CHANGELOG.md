@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.6 - 2026-10-14
+
+- Web page published on GitHub Pages (<https://25dark25.github.io/exactpass/>), the same page as `npm start`. A manual workflow publishes a release tag after running the tests on it, and writes a `release.txt` with the tag, the commit and the SHA-256 of every published file.
+- Web: the page refuses to run inside another site's frame. GitHub Pages cannot send the `frame-ancestors 'none'` header that `serve.js` sends, so any site could otherwise embed the generator (clickjacking).
+- The generator's output and entropy figures are unchanged.
+
 ## 0.1.5 - 2026-10-14
 
 Fixes from a second review of 0.1.4. The generator's output and entropy figures are unchanged for every input that 0.1.4 accepted; the changes add rejections and fix the test suite.
