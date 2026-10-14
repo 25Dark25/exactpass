@@ -230,7 +230,7 @@ test("server: a symbolic link in wordlists/ is not followed (only regular files 
   const target = join(dir, "outside.txt"), link = fileURLToPath(new URL(`../wordlists/zz-symlink-test-${process.pid}.txt`, import.meta.url));
   writeFileSync(target, "outside the whitelist\n");
   try {
-    try { symlinkSync(target, link); } catch { return t.skip("cannot create symbolic links here (Windows without privileges)"); }
+    try { symlinkSync(target, link); } catch { return t.skip("cannot create symbolic links here (read-only folder, or Windows without Developer Mode or admin rights)"); }
     const s = await startOnFreePort();
     try {
       assert.equal(await get(s.port, `/wordlists/zz-symlink-test-${process.pid}.txt`), 404);
