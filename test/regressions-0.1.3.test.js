@@ -122,3 +122,13 @@ test("Sardinas-Patterson: no exponential blow-up on cyclic codes that pass the w
   assert.equal(r.status, 0, `status ${r.status} after ${Date.now() - t0} ms: ${r.stderr}`);
   assert.equal(r.stdout.trim(), "118 []"); // uniquely decodable: no warning
 });
+
+test("CLI: without a mode the usage goes to stderr (stdout stays empty on every error); --help still uses stdout", () => {
+  const none = run([]);
+  assert.equal(none.status, 2);
+  assert.equal(none.stdout, ""); // pw=$(exactpass) must not capture the help text as a password
+  assert.match(none.stderr, /exactpass <password\|passphrase\|key>/);
+  const help = run(["--help"]);
+  assert.equal(help.status, 0);
+  assert.match(help.stdout, /exactpass <password\|passphrase\|key>/);
+});

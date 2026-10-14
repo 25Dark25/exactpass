@@ -34,7 +34,8 @@ try {
   const wanted = v.lang || process.env.EXACTPASS_LANG || "en"; // an empty value counts as unset
   if (!LANGS.includes(wanted)) throw new E("cli.err.lang", { lang: wanted });
   lang = wanted;
-  if (v.help || !mode) { console.log(t(lang, "cli.help")); process.exit(v.help ? 0 : 2); }
+  if (v.help) { console.log(t(lang, "cli.help")); process.exit(0); }
+  if (!mode) { console.error(t(lang, "cli.help")); process.exit(2); } // an error: nothing on stdout
 
   const [, extra] = positionals;
   if (extra !== undefined) throw new E("cli.err.extra", { arg: extra });
