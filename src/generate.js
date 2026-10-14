@@ -130,20 +130,18 @@ export function isUniquelyDecodable(code) {
     for (let i = lo; i < sorted.length && sorted[i].startsWith(p); i++) out.push(sorted[i]);
     return out;
   };
-  let S = new Set(); // S1: dangling suffixes of pairs (u a proper prefix of v)
-  for (const v of C) for (let k = 1; k < v.length; k++) if (C.has(v.slice(0, k))) S.add(v.slice(k));
+  // S(i+1) is the union of the successors of each element of S(i), so the code is uniquely decodable iff no dangling
+  // suffix reachable from S1 is a code word. Visiting each suffix once is polynomial; iterating whole sets S1, S2, ...
+  // until one repeats can take exponentially many steps (cycles of coprime lengths).
   const seen = new Set();
-  while (S.size > 0) {
-    for (const x of S) if (C.has(x)) return false;
-    const key = [...S].sort().join("\u0000");
-    if (seen.has(key)) return true;
-    seen.add(key);
-    const next = new Set();
-    for (const x of S) {
-      for (let k = 1; k < x.length; k++) if (C.has(x.slice(0, k))) next.add(x.slice(k)); // c·w = x
-      for (const c of withPrefix(x)) if (c.length > x.length) next.add(c.slice(x.length)); // x·w = c
-    }
-    S = next;
+  const queue = [];
+  const visit = (x) => { if (!seen.has(x)) { seen.add(x); queue.push(x); } };
+  for (const v of C) for (let k = 1; k < v.length; k++) if (C.has(v.slice(0, k))) visit(v.slice(k)); // S1: u a proper prefix of v
+  while (queue.length > 0) {
+    const x = queue.pop();
+    if (C.has(x)) return false;
+    for (let k = 1; k < x.length; k++) if (C.has(x.slice(0, k))) visit(x.slice(k)); // c·w = x
+    for (const c of withPrefix(x)) if (c.length > x.length) visit(c.slice(x.length)); // x·w = c
   }
   return true;
 }

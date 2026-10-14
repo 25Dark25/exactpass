@@ -3,7 +3,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { buildGroups, generateKey, generatePassphrase, generatePassword, parseWordlist } from "../src/generate.js";
+import { buildGroups, generateKey, generatePassphrase, generatePassword, isUniquelyDecodable, parseWordlist } from "../src/generate.js";
 
 const cli = fileURLToPath(new URL("../bin/exactpass.js", import.meta.url));
 const run = (args, env = {}) => spawnSync(process.execPath, [cli, ...args], { encoding: "utf8", timeout: 10000, env: { ...process.env, EXACTPASS_LANG: "", ...env } });
@@ -65,4 +65,60 @@ test("passphrase: the separator cannot contain line breaks, control, invisible o
   const r = run(["passphrase", "--wordlist", fileURLToPath(new URL("../wordlists/eff_large_wordlist.txt", import.meta.url)), "--separator", "\n"]);
   assert.equal(r.status, 2);
   assert.equal(r.stdout, ""); // the secret must never be split over several lines
+});
+
+// Sardinas-Patterson as shipped in 0.1.3 (sequence of whole sets S1, S2, ...): the reference for the new implementation.
+function referenceUD(code) {
+  const C = new Set(code);
+  if (C.size !== code.length || C.has("")) return false;
+  let S = new Set();
+  for (const v of C) for (let k = 1; k < v.length; k++) if (C.has(v.slice(0, k))) S.add(v.slice(k));
+  const seen = new Set();
+  while (S.size > 0) {
+    for (const x of S) if (C.has(x)) return false;
+    const key = [...S].sort().join("\u0000");
+    if (seen.has(key)) return true;
+    seen.add(key);
+    const next = new Set();
+    for (const x of S) {
+      for (let k = 1; k < x.length; k++) if (C.has(x.slice(0, k))) next.add(x.slice(k));
+      for (const c of C) if (c.length > x.length && c.startsWith(x)) next.add(c.slice(x.length));
+    }
+    S = next;
+  }
+  return true;
+}
+
+test("Sardinas-Patterson: same answer as the 0.1.3 algorithm on random codes", () => {
+  let s = 2024;
+  const rnd = (n) => { s = (Math.imul(s, 1103515245) + 12345) >>> 0; return s % n; };
+  let ud = 0, notUd = 0;
+  for (let i = 0; i < 4000; i++) {
+    const letters = "abc".slice(0, 2 + rnd(2)), size = 2 + rnd(6), code = new Set();
+    while (code.size < size) code.add(Array.from({ length: 1 + rnd(5) }, () => letters[rnd(letters.length)]).join(""));
+    const c = [...code], want = referenceUD(c);
+    assert.equal(isUniquelyDecodable(c), want, JSON.stringify(c));
+    want ? ud++ : notUd++;
+  }
+  assert.ok(ud > 300 && notUd > 300, `coverage: ${ud} UD, ${notUd} not UD`);
+});
+
+test("Sardinas-Patterson: no exponential blow-up on cyclic codes that pass the word-list checks", () => {
+  // Words X, X-u1, u1-u2, ..., up-u1 for p = 2, 3, 5, ..., 23: with separator "-" the sets S1, S2, ... cycle with period
+  // 2*3*5*...*23 = 223092870. The 0.1.3 algorithm needed 86 s and 1.5 GB, then failed with "Set maximum size exceeded".
+  const script = `
+    import { parseWordlist, generatePassphrase } from ${JSON.stringify(new URL("../src/generate.js", import.meta.url).href)};
+    let cp = 0x4E00; const ch = () => String.fromCodePoint(cp++);
+    const words = [];
+    for (const p of [2, 3, 5, 7, 11, 13, 17, 19, 23]) {
+      const X = ch(), u = Array.from({ length: p }, ch);
+      words.push(X, X + "-" + u[0]);
+      for (let i = 0; i < p; i++) words.push(u[i] + "-" + u[(i + 1) % p]);
+    }
+    const r = generatePassphrase({ wordlist: parseWordlist(words.join("\\n")), words: 2, minBits: 1 });
+    console.log(words.length, JSON.stringify(r.warnings));`;
+  const t0 = Date.now();
+  const r = spawnSync(process.execPath, ["--input-type=module", "-e", script], { encoding: "utf8", timeout: 10000 });
+  assert.equal(r.status, 0, `status ${r.status} after ${Date.now() - t0} ms: ${r.stderr}`);
+  assert.equal(r.stdout.trim(), "118 []"); // uniquely decodable: no warning
 });
