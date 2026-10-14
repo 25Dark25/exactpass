@@ -2,6 +2,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
+import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { buildGroups, generateKey, generatePassphrase, generatePassword, isUniquelyDecodable, parseWordlist } from "../src/generate.js";
 
@@ -131,4 +132,12 @@ test("CLI: without a mode the usage goes to stderr (stdout stays empty on every 
   const help = run(["--help"]);
   assert.equal(help.status, 0);
   assert.match(help.stdout, /exactpass <password\|passphrase\|key>/);
+});
+
+test("passphrase: without --words, an unreachable minimum says so instead of blaming the number of words", () => {
+  const eff = parseWordlist(readFileSync(new URL("../wordlists/eff_large_wordlist.txt", import.meta.url), "utf8"));
+  assert.throws(() => generatePassphrase({ wordlist: eff, minBits: 1000 }), { code: "err.words_unreachable", params: { minBits: 1000, max: 64, size: 7776 } });
+  assert.throws(() => generatePassphrase({ wordlist: ["a", "b"] }), { code: "err.words_unreachable" });
+  assert.throws(() => generatePassphrase({ wordlist: eff, words: 65 }), { code: "err.words" }); // an explicit value keeps its message
+  assert.match(run(["passphrase", "--wordlist", fileURLToPath(new URL("../wordlists/eff_large_wordlist.txt", import.meta.url)), "--min-bits", "1000"]).stderr, /Cannot reach 1000 bits/);
 });

@@ -10,6 +10,7 @@ export const GROUPS = {
 };
 const LOOKALIKES = new Set(Array.from("0O1lI|"));
 const MAX_LEN = 512;
+const MAX_WORDS = 64;
 const MAX_ATTEMPTS = 100_000; // planPassword guarantees acceptance >= 0.1%: P(exhausting this) <= e^-100
 const dedupe = (s) => [...new Set(Array.from(s))];
 // Control/format characters and default-ignorable ones (variation selectors, Hangul fillers...): they render as nothing.
@@ -159,7 +160,8 @@ export function generatePassphrase({ words, minBits, separator = "-", capitalize
   if (new Set(forms).size !== forms.length) throw new E("err.capitalize_merge");
   const perWord = Math.log2(forms.length);
   const n = words ?? Math.ceil(min / perWord - 1e-9);
-  if (!Number.isInteger(n) || n < 1 || n > 64) throw new E("err.words");
+  if (words === undefined && n > MAX_WORDS) throw new E("err.words_unreachable", { minBits: min, max: MAX_WORDS, size: forms.length });
+  if (!Number.isInteger(n) || n < 1 || n > MAX_WORDS) throw new E("err.words");
   const bits = n * perWord;
   if (bits < min - 1e-9) throw new E("err.words_below_min", { n, size: forms.length, bits: bits.toFixed(1), minBits: min });
   const exact = isUniquelyDecodable(forms.map((w) => w + separator));
