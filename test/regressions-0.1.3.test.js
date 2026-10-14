@@ -203,3 +203,17 @@ test("server: on other ports the Host header must still carry the port", async (
     for (const host of ["127.0.0.1", "localhost", "127.0.0.1:80"]) assert.equal(await get(s.port, "/", host), 403, host);
   } finally { await s.stop(); }
 });
+
+test("server: a symbolic link in wordlists/ is not followed (only regular files are served)", async (t) => {
+  const dir = mkdtempSync(join(tmpdir(), "exactpass-"));
+  const target = join(dir, "outside.txt"), link = fileURLToPath(new URL(`../wordlists/zz-symlink-test-${process.pid}.txt`, import.meta.url));
+  writeFileSync(target, "outside the whitelist\n");
+  try {
+    try { symlinkSync(target, link); } catch { return t.skip("cannot create symbolic links here (Windows without privileges)"); }
+    const s = await startOnFreePort();
+    try {
+      assert.equal(await get(s.port, `/wordlists/zz-symlink-test-${process.pid}.txt`), 404);
+      assert.equal(await get(s.port, "/wordlists/eff_large_wordlist.txt"), 200);
+    } finally { await s.stop(); }
+  } finally { rmSync(link, { force: true }); rmSync(dir, { recursive: true, force: true }); }
+});

@@ -1,6 +1,6 @@
 // Minimal local server: 127.0.0.1 only, whitelisted routes only, strict headers. No dependencies.
 import { createServer } from "node:http";
-import { readFile, stat } from "node:fs/promises";
+import { lstat, readFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -34,7 +34,8 @@ const server = createServer(async (req, res) => {
     const path = new URL(req.url, "http://localhost").pathname;
     const rel = ROUTES.get(path) ?? (/^\/wordlists\/[\w.-]+\.txt$/.test(path) ? path.slice(1) : null);
     if (!rel) return send(404, "Not found");
-    if (!(await stat(join(root, rel))).isFile()) return send(404, "Not found"); // e.g. device names on Windows
+    // lstat: a symbolic link is not a regular file, so it is never followed out of the whitelist (also rejects device names on Windows)
+    if (!(await lstat(join(root, rel))).isFile()) return send(404, "Not found");
     const ext = rel.slice(rel.lastIndexOf("."));
     send(200, await readFile(join(root, rel)), TYPES[ext]);
   } catch {
