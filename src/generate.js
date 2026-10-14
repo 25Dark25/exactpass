@@ -12,6 +12,8 @@ const LOOKALIKES = new Set(Array.from("0O1lI|"));
 const MAX_LEN = 512;
 const MAX_ATTEMPTS = 100_000; // planPassword guarantees acceptance >= 0.1%: P(exhausting this) <= e^-100
 const dedupe = (s) => [...new Set(Array.from(s))];
+// Control/format characters and default-ignorable ones (variation selectors, Hangul fillers...): they render as nothing.
+const INVISIBLE = /[\p{C}\p{Default_Ignorable_Code_Point}]/u;
 
 /** The threshold must be a finite number > 0: NaN/0/negative values would silently disable the main guarantee. */
 export function assertMinBits(minBits) {
@@ -94,7 +96,7 @@ export function parseWordlist(text) {
     const parts = line.split(/\s+/);
     if (parts.length > 2 || (parts.length === 2 && !/^\d+$/.test(parts[0]))) throw new E("err.wordlist_line", { line: i + 1 });
     const word = parts.at(-1);
-    if (/\p{C}/u.test(word)) throw new E("err.wordlist_chars", { line: i + 1 });
+    if (INVISIBLE.test(word)) throw new E("err.wordlist_chars", { line: i + 1 });
     if (word.normalize("NFC") !== word) throw new E("err.wordlist_nfc", { line: i + 1 });
     words.push(word);
   });

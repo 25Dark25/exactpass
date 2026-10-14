@@ -3,7 +3,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { generateKey } from "../src/generate.js";
+import { generateKey, parseWordlist } from "../src/generate.js";
 
 const cli = fileURLToPath(new URL("../bin/exactpass.js", import.meta.url));
 const run = (args, env = {}) => spawnSync(process.execPath, [cli, ...args], { encoding: "utf8", timeout: 10000, env: { ...process.env, EXACTPASS_LANG: "", ...env } });
@@ -23,5 +23,12 @@ test("CLI: mode names inherited from Object.prototype give the normal 'unknown m
     assert.equal(r.status, 2, mode);
     assert.equal(r.stdout, "", mode);
     assert.match(r.stderr, /^Error: Unknown mode: /, mode);
+  }
+});
+
+test("word list: default-ignorable characters that are not control characters are rejected too", () => {
+  // U+FE0F variation selector, U+034F grapheme joiner, U+180B Mongolian FVS (marks); U+3164 / U+FFA0 Hangul fillers (letters)
+  for (const c of ["\uFE0F", "\u034F", "\u180B", "\u3164", "\uFFA0"]) {
+    assert.throws(() => parseWordlist(`abc\nabc${c}\nxyz`), { code: "err.wordlist_chars", params: { line: 2 } }, `U+${c.codePointAt(0).toString(16)}`);
   }
 });
