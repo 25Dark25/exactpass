@@ -251,3 +251,37 @@ test("passphrase --capitalize: a list whose capitalized forms are not NFC is rej
   assert.doesNotThrow(() => generatePassphrase({ wordlist: ["\u0390x", "zzz"], words: 1, minBits: 1 })); // without --capitalize nothing changes
   assert.doesNotThrow(() => generatePassphrase({ wordlist: SAMPLE, capitalize: true }));
 });
+
+test("word lists, separators and alphabets cannot start with a character that combines with the text before it", () => {
+  // "e" + "\u0301" + "\u00E9" and "\u00E9" + "e" + "\u0301" are different sequences but the same text after NFC (and on screen)
+  assert.throws(() => parseWordlist("e\n\u00E9\n\u0301"), { code: "err.wordlist_start", params: { line: 3 } });
+  assert.throws(() => generatePassphrase({ wordlist: ["e", "\u00E9", "\u0301x"], words: 3, minBits: 1, separator: "" }), { code: "err.wordlist_start", params: { line: 3 } });
+  assert.throws(() => parseWordlist("\u1100\n\uAC00\n\u1161x"), { code: "err.wordlist_start", params: { line: 3 } }); // Hangul vowel jamo
+  assert.throws(() => generatePassphrase({ wordlist: ["e", "x"], words: 2, minBits: 1, separator: "\u0301" }), { code: "err.separator_start" });
+  assert.throws(() => buildGroups({ alphabet: "\u1100\u1161\uAC00" }), { code: "err.alphabet_chars" }); // 27 strings, 26 after NFC
+  if ("\u{16D63}\u{16D67}".normalize("NFC") !== "\u{16D63}\u{16D67}") { // Kirat Rai (Unicode 16): a letter, not a mark, that composes
+    assert.throws(() => parseWordlist("\u{16D63}\n\u{16D67}a"), { code: "err.wordlist_start", params: { line: 2 } });
+  }
+  // marks inside a word, or a separator that only contains them after a base character, are fine
+  assert.deepEqual(parseWordlist("caf\u00E9\nx\u0323\u0302y"), ["caf\u00E9", "x\u0323\u0302y"]);
+  assert.doesNotThrow(() => generatePassphrase({ wordlist: ["a", "b"], words: 2, minBits: 1, separator: "\u00B7" }));
+});
+
+test("property: every accepted list keeps its word sequences distinct and stable under NFC", () => {
+  const pool = ["e", "\u00E9", "\u0301", "\u0323", "a", "\u1100", "\u1161", "\uAC00", "\u11A8", "x", "\u0390", "\u0399"];
+  let s = 99, accepted = 0, rejected = 0;
+  const rnd = (n) => { s = (Math.imul(s, 1103515245) + 12345) >>> 0; return s % n; };
+  for (let i = 0; i < 3000; i++) {
+    const words = new Set();
+    while (words.size < 2 + rnd(4)) words.add(Array.from({ length: 1 + rnd(3) }, () => pool[rnd(pool.length)]).join("").normalize("NFC"));
+    const sep = ["", "-", "x", "\u0301", "\u00E9"][rnd(5)];
+    let r;
+    try { r = generatePassphrase({ wordlist: [...words], words: 2, minBits: 1, separator: sep }); } catch { rejected++; continue; }
+    accepted++;
+    if (r.warnings.length) continue; // ambiguous separator: the figure is already reported as an upper bound
+    const texts = [...words].flatMap((a) => [...words].map((b) => a + sep + b));
+    for (const t of texts) assert.equal(t.normalize("NFC"), t, JSON.stringify({ words: [...words], sep, t }));
+    assert.equal(new Set(texts.map((t) => t.normalize("NFC"))).size, texts.length, JSON.stringify({ words: [...words], sep }));
+  }
+  assert.ok(accepted > 300 && rejected > 300, `coverage: ${accepted} accepted, ${rejected} rejected`);
+});
