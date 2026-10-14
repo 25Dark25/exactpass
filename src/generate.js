@@ -28,6 +28,8 @@ export function buildGroups({ useLower = true, useUpper = true, useDigits = true
     : [useLower && GROUPS.lower, useUpper && GROUPS.upper, useDigits && GROUPS.digits, useSymbols && symbols].filter(Boolean).map(dedupe);
   const seen = new Set();
   const groups = raw.map((g) => g.filter((c) => {
+    // An array can hold "ab" next to "a" and "b": different sequences would then join into the same string.
+    if (typeof c !== "string" || Array.from(c).length !== 1) throw new E("err.alphabet_entry");
     if (/[\s\p{C}\p{M}]/u.test(c)) throw new E("err.alphabet_chars");
     if (c.normalize("NFC") !== c) throw new E("err.alphabet_nfc"); // e.g. U+212B would look like U+00C5
     if (seen.has(c) || (excludeLookalikes && LOOKALIKES.has(c))) return false;
@@ -82,6 +84,14 @@ export function generatePassword(opts = {}, source = systemSource) {
   };
 }
 
+/** One entry of a word list (`line` is its 1-based position): the rules that keep n*log2(W) honest. */
+function checkWord(word, line) {
+  if (typeof word !== "string" || word === "") throw new E("err.wordlist_entry", { line }); // {} and "[object Object]"...
+  if (/\s/u.test(word)) throw new E("err.wordlist_line", { line });
+  if (INVISIBLE.test(word)) throw new E("err.wordlist_chars", { line });
+  if (word.normalize("NFC") !== word) throw new E("err.wordlist_nfc", { line });
+}
+
 /**
  * Accepts one word per line or the Diceware format "11111<TAB>word".
  * Rejects lines with several words, invisible or control characters and non-NFC text: entries that look the same
@@ -96,8 +106,7 @@ export function parseWordlist(text) {
     const parts = line.split(/\s+/);
     if (parts.length > 2 || (parts.length === 2 && !/^\d+$/.test(parts[0]))) throw new E("err.wordlist_line", { line: i + 1 });
     const word = parts.at(-1);
-    if (INVISIBLE.test(word)) throw new E("err.wordlist_chars", { line: i + 1 });
-    if (word.normalize("NFC") !== word) throw new E("err.wordlist_nfc", { line: i + 1 });
+    checkWord(word, i + 1);
     words.push(word);
   });
   const dup = words.length - new Set(words).size;
@@ -142,7 +151,9 @@ export function isUniquelyDecodable(code) {
 export function generatePassphrase({ words, minBits, separator = "-", capitalize = false, wordlist } = {}, source = systemSource) {
   const min = assertMinBits(minBits ?? 128);
   if (typeof separator !== "string") throw new E("err.separator_type");
-  if (!Array.isArray(wordlist) || wordlist.length < 2 || new Set(wordlist).size !== wordlist.length) throw new E("err.wordlist");
+  if (!Array.isArray(wordlist) || wordlist.length < 2) throw new E("err.wordlist");
+  wordlist.forEach((w, i) => checkWord(w, i + 1)); // API callers do not necessarily go through parseWordlist
+  if (new Set(wordlist).size !== wordlist.length) throw new E("err.wordlist");
   const forms = wordlist.map((w) => (capitalize ? w.charAt(0).toUpperCase() + w.slice(1) : w)); // deterministic: adds no entropy
   if (new Set(forms).size !== forms.length) throw new E("err.capitalize_merge");
   const perWord = Math.log2(forms.length);
