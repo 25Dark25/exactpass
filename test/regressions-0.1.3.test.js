@@ -55,3 +55,14 @@ test("API: alphabet and symbol entries must be single code points (multi-charact
   assert.throws(() => buildGroups({ alphabet: [1, 2] }), { code: "err.alphabet_entry" });
   assert.deepEqual(buildGroups({ alphabet: ["x", "y", "\u{1F600}"] }), [["x", "y", "\u{1F600}"]]); // one astral code point is fine
 });
+
+test("passphrase: the separator cannot contain line breaks, control, invisible or non-NFC characters", () => {
+  const wordlist = ["alpha", "beta", "gamma", "delta"];
+  for (const separator of ["\n", "\r\n", "\t", "\u001b[8m", "​", "️", " ", " ", "\u0085", "é"]) {
+    assert.throws(() => generatePassphrase({ wordlist, words: 3, minBits: 1, separator }), (e) => /^err\.separator_/.test(e.code), JSON.stringify(separator));
+  }
+  for (const separator of ["-", " ", "", "_", "·", ". "]) assert.doesNotThrow(() => generatePassphrase({ wordlist, words: 3, minBits: 1, separator }), JSON.stringify(separator));
+  const r = run(["passphrase", "--wordlist", fileURLToPath(new URL("../wordlists/eff_large_wordlist.txt", import.meta.url)), "--separator", "\n"]);
+  assert.equal(r.status, 2);
+  assert.equal(r.stdout, ""); // the secret must never be split over several lines
+});

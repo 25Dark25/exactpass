@@ -151,6 +151,9 @@ export function isUniquelyDecodable(code) {
 export function generatePassphrase({ words, minBits, separator = "-", capitalize = false, wordlist } = {}, source = systemSource) {
   const min = assertMinBits(minBits ?? 128);
   if (typeof separator !== "string") throw new E("err.separator_type");
+  // It ends up inside the secret: a line break would split it on stdout, an invisible character could not be typed.
+  if (INVISIBLE.test(separator) || /[\p{Zl}\p{Zp}]/u.test(separator)) throw new E("err.separator_chars");
+  if (separator.normalize("NFC") !== separator) throw new E("err.separator_nfc");
   if (!Array.isArray(wordlist) || wordlist.length < 2) throw new E("err.wordlist");
   wordlist.forEach((w, i) => checkWord(w, i + 1)); // API callers do not necessarily go through parseWordlist
   if (new Set(wordlist).size !== wordlist.length) throw new E("err.wordlist");
