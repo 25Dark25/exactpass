@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { generatePassword, generatePassphrase, generateKey, decodeWordlist, parseWordlist } from "../src/generate.js";
 import { estimate } from "../src/entropy.js";
-import { LANGS, ExactpassError, ExactpassError as E, t } from "../src/i18n.js";
+import { ExactpassError, ExactpassError as E, matchLang, t } from "../src/i18n.js";
 
 let lang = "en";
 const int = (name, v) => {
@@ -32,8 +32,8 @@ try {
   });
   const [mode] = positionals;
   const wanted = v.lang || process.env.EXACTPASS_LANG || "en"; // an empty value counts as unset
-  if (!LANGS.includes(wanted)) throw new E("cli.err.lang", { lang: wanted });
-  lang = wanted;
+  if (!matchLang(wanted)) throw new E("cli.err.lang", { lang: wanted });
+  lang = matchLang(wanted);
   if (v.help) { console.log(t(lang, "cli.help")); process.exit(0); }
   if (!mode) { console.error(t(lang, "cli.help")); process.exit(2); } // an error: nothing on stdout
 

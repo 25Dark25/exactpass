@@ -217,3 +217,14 @@ test("server: a symbolic link in wordlists/ is not followed (only regular files 
     } finally { await s.stop(); }
   } finally { rmSync(link, { force: true }); rmSync(dir, { recursive: true, force: true }); }
 });
+
+test("CLI: language tags are matched on their primary subtag, case-insensitively (es-ES, ES, es_ES.UTF-8)", () => {
+  for (const value of ["es-ES", "ES", "es_ES.UTF-8", "es-419"]) {
+    const r = run(["password", "--no-symbols"], { EXACTPASS_LANG: value });
+    assert.equal(r.status, 0, value);
+    assert.match(r.stderr, /Entropía exacta/, value);
+    assert.match(run(["password", "--no-symbols", "--lang", value]).stderr, /Entropía exacta/, `--lang ${value}`);
+  }
+  assert.match(run(["password", "--no-symbols", "--lang", "EN-us"]).stderr, /Exact entropy/);
+  for (const value of ["fr", "fr-ES", "C", "e"]) assert.equal(run(["--help"], { EXACTPASS_LANG: value }).status, 2, value); // unknown stays an error
+});

@@ -184,6 +184,12 @@ const es = {
 
 export const CATALOGS = { en, es };
 
+/** "es", "ES", "es-ES", "es_ES.UTF-8" -> "es": primary subtag, case-insensitive. Unknown languages give undefined. */
+export function matchLang(value) {
+  const primary = String(value).toLowerCase().split(/[-_.@]/)[0];
+  return LANGS.includes(primary) ? primary : undefined;
+}
+
 /** Translate `key` into `lang` (falls back to English, then to the key itself). */
 export function t(lang, key, params = {}) {
   const s = (CATALOGS[lang] ?? en)[key] ?? en[key] ?? key;
