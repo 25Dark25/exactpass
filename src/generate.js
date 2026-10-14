@@ -160,11 +160,13 @@ export function generateKey({ bytes = 32, format = "hex", minBits } = {}, source
   const raw = source.randomBytes(bytes);
   if (raw.length !== bytes) throw new Error("The random source returned an unexpected length.");
   const b64 = () => { let bin = ""; for (const b of raw) bin += String.fromCharCode(b); return btoa(bin); };
-  const enc = {
+  const encoders = {
     hex: () => Array.from(raw, (b) => b.toString(16).padStart(2, "0")).join(""),
     base64: b64,
     base64url: () => b64().replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, ""),
-  }[format];
-  if (!enc) throw new E("err.format");
+  };
+  // Own keys only: "constructor" or "toString" would otherwise return a constant value reported as `bytes * 8` bits.
+  if (typeof format !== "string" || !Object.hasOwn(encoders, format)) throw new E("err.format");
+  const enc = encoders[format];
   return { kind: "key", value: enc(), bits: bytes * 8, bytes, warnings: [] };
 }
