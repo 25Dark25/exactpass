@@ -121,7 +121,7 @@ test("Sardinas-Patterson: no exponential blow-up on cyclic codes that pass the w
       for (let i = 0; i < p; i++) words.push(u[i] + "-" + u[(i + 1) % p]);
     }
     const r = generatePassphrase({ wordlist: parseWordlist(words.join("\\n")), words: 2, minBits: 1 });
-    console.log(words.length, JSON.stringify(r.warnings));`;
+    console.log(String(words.length) + " " + JSON.stringify(r.warnings));`; // one string: under FORCE_COLOR a number would be colored
   const t0 = Date.now();
   const r = spawnSync(process.execPath, ["--input-type=module", "-e", script], { encoding: "utf8", timeout: 10000 });
   assert.equal(r.status, 0, `status ${r.status} after ${Date.now() - t0} ms: ${r.stderr}`);
