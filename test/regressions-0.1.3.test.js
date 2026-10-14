@@ -292,3 +292,13 @@ test("property: every accepted list keeps its word sequences distinct and stable
   }
   assert.ok(accepted > 300 && rejected > 300, `coverage: ${accepted} accepted, ${rejected} rejected`);
 });
+
+test("API: an alphabet or symbols that is neither a string nor an array gives a project error, not a TypeError", () => {
+  for (const bad of [null, 5, {}, true]) {
+    assert.throws(() => buildGroups({ alphabet: bad }), { code: "err.alphabet_entry" }, `alphabet ${String(bad)}`);
+    assert.throws(() => buildGroups({ symbols: bad }), { code: "err.alphabet_entry" }, `symbols ${String(bad)}`);
+  }
+  assert.throws(() => buildGroups({ symbols: "" }), { code: "err.group_empty" }); // an empty group never vanishes silently
+  assert.throws(() => buildGroups({ symbols: false }), { code: "err.alphabet_entry" });
+  assert.equal(buildGroups({ useSymbols: false, symbols: null }).length, 3); // ignored when symbols are off
+});

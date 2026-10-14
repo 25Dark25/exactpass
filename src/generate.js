@@ -44,9 +44,13 @@ export function assertMinBits(minBits) {
 
 /** Disjoint character groups. The REAL alphabet size (after filters) is what counts for the entropy. */
 export function buildGroups({ useLower = true, useUpper = true, useDigits = true, useSymbols = true, symbols = GROUPS.symbols, excludeLookalikes = false, alphabet } = {}) {
+  const text = (x) => typeof x === "string" || Array.isArray(x);
+  if (alphabet !== undefined && !text(alphabet)) throw new E("err.alphabet_entry");
+  if (alphabet === undefined && useSymbols && !text(symbols)) throw new E("err.alphabet_entry");
+  // Filter on the switches, not on the contents: an empty custom group must reach the err.group_empty check.
   const raw = alphabet !== undefined
     ? [dedupe(alphabet)]
-    : [useLower && GROUPS.lower, useUpper && GROUPS.upper, useDigits && GROUPS.digits, useSymbols && symbols].filter(Boolean).map(dedupe);
+    : [[useLower, GROUPS.lower], [useUpper, GROUPS.upper], [useDigits, GROUPS.digits], [useSymbols, symbols]].filter(([on]) => on).map(([, g]) => dedupe(g));
   const seen = new Set();
   const groups = raw.map((g) => g.filter((c) => {
     // An array can hold "ab" next to "a" and "b": different sequences would then join into the same string.
