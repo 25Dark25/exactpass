@@ -2,7 +2,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { spawn, spawnSync } from "node:child_process";
-import { mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { request } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -11,6 +11,17 @@ import { buildGroups, decodeWordlist, generateKey, generatePassphrase, generateP
 
 const cli = fileURLToPath(new URL("../bin/exactpass.js", import.meta.url));
 const serverJs = fileURLToPath(new URL("../serve.js", import.meta.url));
+// Self-contained data: the tests must not depend on wordlists/eff_large_wordlist.txt being present.
+const SAMPLE = Array.from({ length: 7776 }, (_, i) => `w${i.toString(36)}`); // 7776 unique ASCII words, like the EFF list
+/** Writes `words` to a temporary list file, calls fn(path) and removes the file. */
+function withListFile(words, fn) {
+  const dir = mkdtempSync(join(tmpdir(), "exactpass-"));
+  try {
+    const file = join(dir, "list.txt");
+    writeFileSync(file, words.join("\n") + "\n");
+    return fn(file);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+}
 const run = (args, env = {}) => spawnSync(process.execPath, [cli, ...args], { encoding: "utf8", timeout: 10000, env: { ...process.env, EXACTPASS_LANG: "", ...env } });
 
 test("key: format names inherited from Object.prototype are rejected, not used as encoders (fail closed)", () => {
@@ -67,9 +78,13 @@ test("passphrase: the separator cannot contain line breaks, control, invisible o
     assert.throws(() => generatePassphrase({ wordlist, words: 3, minBits: 1, separator }), (e) => /^err\.separator_/.test(e.code), JSON.stringify(separator));
   }
   for (const separator of ["-", " ", "", "_", "\u00B7", ". "]) assert.doesNotThrow(() => generatePassphrase({ wordlist, words: 3, minBits: 1, separator }), JSON.stringify(separator));
-  const r = run(["passphrase", "--wordlist", fileURLToPath(new URL("../wordlists/eff_large_wordlist.txt", import.meta.url)), "--separator", "\n"]);
-  assert.equal(r.status, 2);
-  assert.equal(r.stdout, ""); // the secret must never be split over several lines
+  withListFile(SAMPLE, (file) => {
+    assert.equal(run(["passphrase", "--wordlist", file, "--separator", "-"]).status, 0); // the list itself is fine
+    const r = run(["passphrase", "--wordlist", file, "--separator", "\n"]);
+    assert.equal(r.status, 2);
+    assert.equal(r.stdout, ""); // the secret must never be split over several lines
+    assert.match(r.stderr, /separator/);
+  });
 });
 
 // Sardinas-Patterson as shipped in 0.1.3 (sequence of whole sets S1, S2, ...): the reference for the new implementation.
@@ -139,11 +154,10 @@ test("CLI: without a mode the usage goes to stderr (stdout stays empty on every 
 });
 
 test("passphrase: without --words, an unreachable minimum says so instead of blaming the number of words", () => {
-  const eff = parseWordlist(readFileSync(new URL("../wordlists/eff_large_wordlist.txt", import.meta.url), "utf8"));
-  assert.throws(() => generatePassphrase({ wordlist: eff, minBits: 1000 }), { code: "err.words_unreachable", params: { minBits: 1000, max: 64, size: 7776 } });
+  assert.throws(() => generatePassphrase({ wordlist: SAMPLE, minBits: 1000 }), { code: "err.words_unreachable", params: { minBits: 1000, max: 64, size: 7776 } });
   assert.throws(() => generatePassphrase({ wordlist: ["a", "b"] }), { code: "err.words_unreachable" });
-  assert.throws(() => generatePassphrase({ wordlist: eff, words: 65 }), { code: "err.words" }); // an explicit value keeps its message
-  assert.match(run(["passphrase", "--wordlist", fileURLToPath(new URL("../wordlists/eff_large_wordlist.txt", import.meta.url)), "--min-bits", "1000"]).stderr, /Cannot reach 1000 bits/);
+  assert.throws(() => generatePassphrase({ wordlist: SAMPLE, words: 65 }), { code: "err.words" }); // an explicit value keeps its message
+  withListFile(SAMPLE, (file) => assert.match(run(["passphrase", "--wordlist", file, "--min-bits", "1000"]).stderr, /Cannot reach 1000 bits/));
 });
 
 test("word list files: invalid UTF-8 and UTF-16 are rejected with an encoding message, not decoded into look-alikes", () => {
@@ -213,7 +227,7 @@ test("server: a symbolic link in wordlists/ is not followed (only regular files 
     const s = await startOnFreePort();
     try {
       assert.equal(await get(s.port, `/wordlists/zz-symlink-test-${process.pid}.txt`), 404);
-      assert.equal(await get(s.port, "/wordlists/eff_large_wordlist.txt"), 200);
+      assert.equal(await get(s.port, "/"), 200); // the server itself works
     } finally { await s.stop(); }
   } finally { rmSync(link, { force: true }); rmSync(dir, { recursive: true, force: true }); }
 });
@@ -235,6 +249,5 @@ test("passphrase --capitalize: a list whose capitalized forms are not NFC is rej
   assert.throws(() => generatePassphrase({ wordlist: ["\u0390x", "\u03AA\u0301x"], words: 1, minBits: 1, capitalize: true }), { code: "err.capitalize_nfc", params: { line: 1 } });
   assert.throws(() => generatePassphrase({ wordlist: ["zzz", "\u0390x"], words: 1, minBits: 1, capitalize: true }), { code: "err.capitalize_nfc", params: { line: 2 } });
   assert.doesNotThrow(() => generatePassphrase({ wordlist: ["\u0390x", "zzz"], words: 1, minBits: 1 })); // without --capitalize nothing changes
-  const eff = parseWordlist(readFileSync(new URL("../wordlists/eff_large_wordlist.txt", import.meta.url), "utf8"));
-  assert.doesNotThrow(() => generatePassphrase({ wordlist: eff, capitalize: true }));
+  assert.doesNotThrow(() => generatePassphrase({ wordlist: SAMPLE, capitalize: true }));
 });
