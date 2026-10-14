@@ -16,6 +16,8 @@ const ROUTES = new Map([
   ["/", "index.html"], ["/web/app.js", "web/app.js"], ["/web/style.css", "web/style.css"],
   ["/src/rng.js", "src/rng.js"], ["/src/entropy.js", "src/entropy.js"], ["/src/generate.js", "src/generate.js"], ["/src/i18n.js", "src/i18n.js"],
 ]);
+// Browsers omit the port from the Host header when it is the default one (80 for http).
+const HOSTS = [`127.0.0.1:${port}`, `localhost:${port}`, ...(port === 80 ? ["127.0.0.1", "localhost"] : [])];
 const CSP = "default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src data:; base-uri 'none'; form-action 'none'; frame-ancestors 'none'";
 
 const server = createServer(async (req, res) => {
@@ -27,7 +29,7 @@ const server = createServer(async (req, res) => {
     res.end(body);
   };
   try {
-    if (![`127.0.0.1:${port}`, `localhost:${port}`].includes(req.headers.host ?? "")) return send(403, "Host not allowed");
+    if (!HOSTS.includes(req.headers.host ?? "")) return send(403, "Host not allowed");
     if (req.method !== "GET") return send(405, "Method not allowed");
     const path = new URL(req.url, "http://localhost").pathname;
     const rel = ROUTES.get(path) ?? (/^\/wordlists\/[\w.-]+\.txt$/.test(path) ? path.slice(1) : null);

@@ -1,14 +1,16 @@
 // Regression tests for problems found in the 0.1.3 audit.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { spawn, spawnSync } from "node:child_process";
+import { mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { request } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { buildGroups, decodeWordlist, generateKey, generatePassphrase, generatePassword, isUniquelyDecodable, parseWordlist } from "../src/generate.js";
 
 const cli = fileURLToPath(new URL("../bin/exactpass.js", import.meta.url));
+const serverJs = fileURLToPath(new URL("../serve.js", import.meta.url));
 const run = (args, env = {}) => spawnSync(process.execPath, [cli, ...args], { encoding: "utf8", timeout: 10000, env: { ...process.env, EXACTPASS_LANG: "", ...env } });
 
 test("key: format names inherited from Object.prototype are rejected, not used as encoders (fail closed)", () => {
@@ -161,4 +163,43 @@ test("word list files: invalid UTF-8 and UTF-16 are rejected with an encoding me
     assert.equal(r.stdout, "");
     assert.match(r.stderr, /UTF-8/);
   } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+/** Starts serve.js on `port`; resolves to { stop } once it listens, or to null if the port cannot be used here. */
+function startServer(port) {
+  return new Promise((resolve) => {
+    const child = spawn(process.execPath, [serverJs, String(port)], { stdio: ["ignore", "pipe", "pipe"] });
+    const timer = setTimeout(() => { child.kill(); resolve(null); }, 5000);
+    child.stdout.on("data", (d) => { if (/listening/.test(d)) { clearTimeout(timer); resolve({ stop: () => new Promise((r) => { child.on("exit", r); child.kill(); }) }); } });
+    child.on("exit", () => { clearTimeout(timer); resolve(null); }); // EACCES / EADDRINUSE
+  });
+}
+/** GET with an explicit Host header (fetch() silently drops it: Host is a forbidden header name). Resolves to the status. */
+const get = (port, path = "/", host = `127.0.0.1:${port}`) => new Promise((resolve, reject) => {
+  request({ host: "127.0.0.1", port, path, headers: { host } }, (res) => { res.resume(); resolve(res.statusCode); }).on("error", reject).end();
+});
+async function startOnFreePort() {
+  for (let i = 0; i < 10; i++) {
+    const port = 20000 + Math.floor(Math.random() * 40000);
+    const s = await startServer(port);
+    if (s) return { ...s, port };
+  }
+  throw new Error("no free port");
+}
+
+test("server: on port 80 the Host header without a port (what browsers send) is accepted", async (t) => {
+  const s = await startServer(80);
+  if (!s) return t.skip("cannot listen on port 80 here (needs privileges)");
+  try {
+    for (const host of ["127.0.0.1", "localhost", "127.0.0.1:80"]) assert.equal(await get(80, "/", host), 200, host);
+    assert.equal(await get(80, "/", "evil.example"), 403);
+  } finally { await s.stop(); }
+});
+
+test("server: on other ports the Host header must still carry the port", async () => {
+  const s = await startOnFreePort();
+  try {
+    assert.equal(await get(s.port), 200);
+    for (const host of ["127.0.0.1", "localhost", "127.0.0.1:80"]) assert.equal(await get(s.port, "/", host), 403, host);
+  } finally { await s.stop(); }
 });
