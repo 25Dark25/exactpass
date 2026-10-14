@@ -171,6 +171,9 @@ export function generatePassphrase({ words, minBits, separator = "-", capitalize
   wordlist.forEach((w, i) => checkWord(w, i + 1)); // API callers do not necessarily go through parseWordlist
   if (new Set(wordlist).size !== wordlist.length) throw new E("err.wordlist");
   const forms = wordlist.map((w) => (capitalize ? w.charAt(0).toUpperCase() + w.slice(1) : w)); // deterministic: adds no entropy
+  // Upper-casing can leave a non-NFC sequence (U+0390 -> U+0399 U+0308 U+0301) that looks like another word of the list.
+  const notNfc = forms.findIndex((f) => f.normalize("NFC") !== f);
+  if (notNfc >= 0) throw new E("err.capitalize_nfc", { line: notNfc + 1 });
   if (new Set(forms).size !== forms.length) throw new E("err.capitalize_merge");
   const perWord = Math.log2(forms.length);
   const n = words ?? Math.ceil(min / perWord - 1e-9);

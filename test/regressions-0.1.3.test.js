@@ -228,3 +228,13 @@ test("CLI: language tags are matched on their primary subtag, case-insensitively
   assert.match(run(["password", "--no-symbols", "--lang", "EN-us"]).stderr, /Exact entropy/);
   for (const value of ["fr", "fr-ES", "C", "e"]) assert.equal(run(["--help"], { EXACTPASS_LANG: value }).status, 2, value); // unknown stays an error
 });
+
+test("passphrase --capitalize: a list whose capitalized forms are not NFC is rejected (look-alike forms would count twice)", () => {
+  // "\u0390x".toUpperCase() of the first letter gives U+0399 U+0308 U+0301, which is not NFC; its NFC form equals
+  // the capitalized "\u03AA\u0301x", so the two list entries would look the same but count as 2 words.
+  assert.throws(() => generatePassphrase({ wordlist: ["\u0390x", "\u03AA\u0301x"], words: 1, minBits: 1, capitalize: true }), { code: "err.capitalize_nfc", params: { line: 1 } });
+  assert.throws(() => generatePassphrase({ wordlist: ["zzz", "\u0390x"], words: 1, minBits: 1, capitalize: true }), { code: "err.capitalize_nfc", params: { line: 2 } });
+  assert.doesNotThrow(() => generatePassphrase({ wordlist: ["\u0390x", "zzz"], words: 1, minBits: 1 })); // without --capitalize nothing changes
+  const eff = parseWordlist(readFileSync(new URL("../wordlists/eff_large_wordlist.txt", import.meta.url), "utf8"));
+  assert.doesNotThrow(() => generatePassphrase({ wordlist: eff, capitalize: true }));
+});
